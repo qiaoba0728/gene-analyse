@@ -1,6 +1,7 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea
-./bin
-./data
-./README.md
-./docs
+bin
+data
+README.md
+docs/
+examples/
