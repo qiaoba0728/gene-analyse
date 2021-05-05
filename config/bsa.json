@@ -1,0 +1,11 @@
+{
+  "fastp":4,
+  "hisat2": 4,
+  "samtools": 4,
+  "subject":"bsa分析",
+  "body":"bsa分析结果",
+  "sends": [
+    "771473657@qq.com",
+    "1014936712@qq.com"
+  ]
+}

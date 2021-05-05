@@ -1,0 +1,44 @@
+package conf
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"sync"
+)
+
+//config
+type Group struct {
+	Start         string `json:"start"`         //起始列
+	End           string `json:"end"`           //结束列
+	Name          string `json:"name"`          //生成图片名字
+	StartRepeated string `json:"startRepeated"` //重复数目
+	EndRepeated   string `json:"endRepeated"`   //重复数目
+	Output        string `json:"output"`        //生成的文件目录
+}
+type Config struct {
+	//File string `json:"file"`			//基因文件位置
+	Group []*Group `json:"group"`
+}
+
+var (
+	configPath string
+	conf       Config
+	once       sync.Once
+)
+
+func InitConfig(path string) {
+	configPath = path
+}
+func GetConfig() *Config {
+	once.Do(func() {
+		jsonFile, err := ioutil.ReadFile(configPath)
+		if err != nil {
+			panic(err)
+		}
+		err = json.Unmarshal(jsonFile, &conf)
+		if err != nil {
+			panic(err)
+		}
+	})
+	return &conf
+}

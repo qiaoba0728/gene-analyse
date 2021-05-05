@@ -1,0 +1,28 @@
+{
+  "group": [
+    {
+      "start": "1",
+      "end": "6",
+      "name": "G14H-G21H",
+      "repeated": "3",
+      "output": "./diff",
+      "species": "org.Mm.eg.db"
+    },
+    {
+      "start": "6",
+      "end": "9",
+      "name": "G21H-G21L",
+      "repeated": "3",
+      "output": "./diff",
+      "species": "org.Mm.eg.db"
+    },
+    {
+      "start":"10",
+      "end":"13",
+      "name":"G42H-G42L",
+      "repeated":"3",
+      "output":"./diff",
+      "species": "org.Mm.eg.db"
+    }
+  ]
+}
