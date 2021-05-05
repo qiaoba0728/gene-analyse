@@ -2,4 +2,5 @@
 .idea
 ./bin
 ./data
-
+./README.md
+./docs
