@@ -5,3 +5,4 @@ data
 README.md
 docs/
 examples/
+internal/dao/go/
