@@ -1,0 +1,2 @@
+total_reads,total_bases,q20_bases,q30_bases,q20_rate,q30_rate,read1_mean_length,read2_mean_length,gc_content,name
+5.4432832E+07,8.1649248E+09,7.915166444E+09,7.579766183E+09,0.969411,0.928333,150,150,0.483228,fastp
