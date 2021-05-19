@@ -53,6 +53,7 @@ func init() {
 	rootCmd.AddCommand(singleCmd)
 	rootCmd.AddCommand(buildExCmd)
 	rootCmd.AddCommand(bsapCmd)
+	rootCmd.AddCommand(gatkCmd)
 	cobra.OnInitialize(onInitialize)
 	//flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 } //

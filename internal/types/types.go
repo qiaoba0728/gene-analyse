@@ -14,7 +14,7 @@ const (
 	HISAT2_OUT    = "/data/output/hisat2_result"
 	SORTED_OUT    = "/data/output/sorted_result"
 	SINGLE_OUT    = "/data/output/single_result"
-
+	GATK_OUT      = "/data/output/gatk_result"
 	//DIFF_OUT = "/data/output/diff_result"
 	KEGG_OUT = "/data/output/kegg_result"
 	GO_OUT   = "/data/output/go_result"
@@ -36,11 +36,11 @@ const (
 )
 const (
 	R1Sample          = "_R1.fastq.gz"
-	R1SampleEx        = "_R1.fastq.gz"
+	R1SampleEx        = "_R1.fq.gz"
 	R1SampleFq        = "_1.fastq.gz"
 	R1SampleFqEx      = "_1.fq.gz"
 	R1SampleClean     = "_R1.clean.fastq.gz"
-	R1SampleCleanEx   = "_R1.clean.fastq.gz"
+	R1SampleCleanEx   = "_R1.clean.fq.gz"
 	R1SampleCleanFq   = "_1.clean.fastq.gz"
 	R1SampleCleanFqEx = "_1.clean.fq.gz"
 )

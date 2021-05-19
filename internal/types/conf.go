@@ -46,3 +46,33 @@ type ContentCurves struct {
 	N  []float64 `json:"N"`
 	GC []float64 `json:"GC"`
 }
+
+type Project struct {
+	Name         string `json:"name"`
+	Number       string `json:"number"`
+	Organization string `json:"organization"`
+	Time         string `json:"time"`
+}
+type ProjectDesc struct {
+	Number       string `json:"number"`
+	Proposal     string `json:"proposal"`
+	Type         string `json:"type"`
+	Species      string `json:"species"`
+	SampleForm   string `json:"sampleForm"`
+	SampleNumber string `json:"sampleNumber"`
+	Platform     string `json:"platform"`
+	DataSize     string `json:"data_size"`
+	Analyse      string `json:"analyse"`
+	Finished     string `json:"finished"`
+}
+type Text struct {
+	Project     Project     `json:"project"`
+	ProjectDesc ProjectDesc `json:"project_desc"`
+}
+type SampleItem struct {
+	Type string `json:"type"`
+}
+type Tables struct {
+}
+type Images struct {
+}

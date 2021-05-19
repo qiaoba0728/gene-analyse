@@ -22,6 +22,7 @@ import (
 type upStreamPlugin struct {
 	//bar *pgbar.Pgbar
 	logger *zap.Logger
+	tp     types.SampleType
 }
 
 func NewUpStreamPlugin(logger *zap.Logger) types.Plugin {
@@ -299,37 +300,48 @@ func (u *upStreamPlugin) fastq(dir string) error {
 		return err
 	}
 	var wg sync.WaitGroup
+	var tp types.SampleType
 	var flag bool
 	for _, v := range files {
-		if strings.HasSuffix(v.Name(), ".R1.fastq.gz") {
-			flag = true
-			name := v.Name()
-			wg.Add(1)
-			if err = pool.Submit(func() {
-				defer func() {
-					//bar.Add(1)
-					wg.Done()
-					u.logger.Info("build clean file success", zap.String("name", name))
-				}()
-				temp := strings.TrimSuffix(name, ".R1.fastq.gz")
-				u.logger.Info("fastq -> clean", zap.String("source1", name), zap.String("source2", fmt.Sprintf("%s.R2.clean.fastq.gz", temp)))
-				cmd := exec.Command("fastp", "-i",
-					fmt.Sprintf("%s/%s.R1.fastq.gz", types.INPUT, temp),
-					"-I", fmt.Sprintf("%s/%s.R2.fastq.gz", types.INPUT, temp),
-					"-o", fmt.Sprintf("%s/%s.R1.clean.fastq.gz", types.FASTP_OUT, temp),
-					"-O", fmt.Sprintf("%s/%s.R2.clean.fastq.gz", types.FASTP_OUT, temp),
-					"-h", fmt.Sprintf("%s/%s.html", types.FASTP_OUT, temp),
-					"-j", fmt.Sprintf("%s/%s.json", types.FASTP_OUT, temp),
-					">", types.LOG)
-				//cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-				if err = cmd.Run(); err != nil {
-					u.logger.Error("fastq run fail", zap.Error(err), zap.String("cmd", cmd.String()))
-				}
-			}); err != nil {
-				u.logger.Error("submit task run fail", zap.Error(err))
+		switch {
+		case strings.HasSuffix(v.Name(), types.R1Sample):
+			tp = types.SampleType(1)
+		case strings.HasSuffix(v.Name(), types.R1SampleEx):
+			tp = types.SampleType(2)
+		case strings.HasSuffix(v.Name(), types.R1SampleFq):
+			tp = types.SampleType(3)
+		case strings.HasSuffix(v.Name(), types.R1SampleFqEx):
+			tp = types.SampleType(4)
+		default:
+			u.logger.Info("file name", zap.String("name", v.Name()))
+			continue
+		}
+		name := v.Name()
+		wg.Add(1)
+		if err = pool.Submit(func() {
+			defer func() {
+				//bar.Add(1)
+				wg.Done()
+				u.logger.Info("build clean file success", zap.String("name", name))
+			}()
+			temp := strings.TrimSuffix(name, ".R1.fastq.gz")
+			u.logger.Info("fastq -> clean", zap.String("source1", name), zap.String("source2", fmt.Sprintf("%s.R2.clean.fastq.gz", temp)))
+			cmd := exec.Command("fastp", "-i",
+				fmt.Sprintf("%s/%s%s", types.INPUT, temp, tp.Type()),
+				"-I", fmt.Sprintf("%s/%s%s", types.INPUT, temp, strings.Replace(tp.Type(), "1", "2", -1)),
+				"-o", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
+				"-O", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(tp.CleanType(), "1", "2", -1)),
+				"-h", fmt.Sprintf("%s/%s.html", types.FASTP_OUT, temp),
+				"-j", fmt.Sprintf("%s/%s.json", types.FASTP_OUT, temp),
+				">", types.LOG)
+			//cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				u.logger.Error("fastq run fail", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
+		}); err != nil {
+			u.logger.Error("submit task run fail", zap.Error(err))
 		}
 	}
 	if !flag {
@@ -339,6 +351,7 @@ func (u *upStreamPlugin) fastq(dir string) error {
 	u.logger.Info("fastq -> clean waiting")
 	wg.Wait()
 	u.logger.Info("fastq -> clean finished")
+	u.tp = tp
 	return nil
 }
 
@@ -382,36 +395,50 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	var flag bool
+	var (
+		wg   sync.WaitGroup
+		flag bool
+		tp   types.SampleType
+	)
 	for _, v := range files {
-		if strings.HasSuffix(v.Name(), ".R1.clean.fastq.gz") {
-			flag = true
-			name := v.Name()
-			wg.Add(1)
-			if err = pool.Submit(func() {
-				defer func() {
-					//bar.Add(1)
-					wg.Done()
-					log.Println(name, "build map file success", types.HISAT2_OUT, name)
-				}()
-				temp := strings.TrimSuffix(name, ".R1.clean.fastq.gz")
-				cmd := exec.Command("hisat2", "--new-summary", "-p",
-					"4", "-x", types.GENOME_PREFIX,
-					"-1", fmt.Sprintf("%s/%s.%s", types.FASTP_OUT, temp, "R1.clean.fastq.gz"),
-					"-2", fmt.Sprintf("%s/%s.%s", types.FASTP_OUT, temp, "R2.clean.fastq.gz"),
-					"-S", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),
-					"--summary-file", fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp),
-					">", fmt.Sprintf("%s/%s.err", types.LOG, temp))
-				//cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-				if err = cmd.Run(); err != nil {
-					u.logger.Error("hisat2 run fail", zap.Error(err), zap.String("cmd", cmd.String()))
-				}
-			}); err != nil {
-				u.logger.Error("hisat2 submit task run fail", zap.Error(err))
+		if u.tp == 0 {
+			switch {
+			case strings.HasSuffix(v.Name(), types.R1Sample):
+				tp = types.SampleType(1)
+			case strings.HasSuffix(v.Name(), types.R1SampleEx):
+				tp = types.SampleType(2)
+			case strings.HasSuffix(v.Name(), types.R1SampleFq):
+				tp = types.SampleType(3)
+			case strings.HasSuffix(v.Name(), types.R1SampleFqEx):
+				tp = types.SampleType(4)
+			default:
+				u.logger.Info("file name", zap.String("name", v.Name()))
+				continue
 			}
+		}
+		name := v.Name()
+		wg.Add(1)
+		if err = pool.Submit(func() {
+			defer func() {
+				//bar.Add(1)
+				wg.Done()
+				log.Println(name, "build map file success", types.HISAT2_OUT, name)
+			}()
+			temp := strings.TrimSuffix(name, tp.CleanType())
+			cmd := exec.Command("hisat2", "--new-summary", "-p",
+				"4", "-x", types.GENOME_PREFIX,
+				"-1", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
+				"-2", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
+				"-S", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),
+				"--summary-file", fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
+			//cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				u.logger.Error("hisat2 run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+			}
+		}); err != nil {
+			u.logger.Error("hisat2 submit task run fail", zap.Error(err))
 		}
 	}
 	if !flag {

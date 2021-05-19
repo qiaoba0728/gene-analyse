@@ -2,15 +2,11 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/qiaoba0728/gene-analyse/internal/build"
-	"github.com/qiaoba0728/gene-analyse/internal/common"
 	"github.com/qiaoba0728/gene-analyse/internal/conf"
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"io/ioutil"
-	"strings"
 )
 
 var (
@@ -50,29 +46,29 @@ var bsaCmd = &cobra.Command{
 				l.Info("wait bsa dna finished......")
 			}
 		}
-		email := common.NewQQEmail(l.Named("email"))
-		if err != nil {
-			err = email.SendEmail("494340090@qq.com", conf.GetBSAConfig().Sends, "ngybgeetypogbibc", "smtp.qq.com", "hx", conf.GetBSAConfig().Subject, err.Error(), 25, false)
-		} else {
-			inputFiles := make([]string, 0)
-			files, _ := ioutil.ReadDir("/data/output/")
-			for _, v := range files {
-				if strings.HasSuffix(v.Name(), ".pdf") {
-					temp := fmt.Sprintf("/data/output/%s", v.Name())
-					inputFiles = append(inputFiles, temp)
-				}
-			}
-			err := utils.ZipFiles("result.zip", inputFiles, "/data/output", ".")
-			if err != nil {
-				l.Error("zip error", zap.Error(err))
-			}
-			//err = email.SendEmail("494340090@qq.com",conf.GetBSAConfig().Sends, "ngybgeetypogbibc", "smtp.qq.com","hx", conf.GetBSAConfig().Subject, conf.GetBSAConfig().Body, 25,false)
-			err = email.SendEmailWithPoolAndFile(conf.GetBSAConfig().Sends, "494340090@qq.com", "ngybgeetypogbibc", "smtp.qq.com", "hx", conf.GetBSAConfig().Subject, conf.GetBSAConfig().Body, 25, "/bsa/result.zip")
-		}
-		if err != nil {
-			l.Error("send email", zap.Error(err))
-		} else {
-			l.Info("send email success")
-		}
+		//email := common.NewQQEmail(l.Named("email"))
+		//if err != nil {
+		//	err = email.SendEmail("494340090@qq.com", conf.GetBSAConfig().Sends, "ngybgeetypogbibc", "smtp.qq.com", "hx", conf.GetBSAConfig().Subject, err.Error(), 25, false)
+		//} else {
+		//	inputFiles := make([]string, 0)
+		//	files, _ := ioutil.ReadDir("/data/output/")
+		//	for _, v := range files {
+		//		if strings.HasSuffix(v.Name(), ".pdf") {
+		//			temp := fmt.Sprintf("/data/output/%s", v.Name())
+		//			inputFiles = append(inputFiles, temp)
+		//		}
+		//	}
+		//	err := utils.ZipFiles("result.zip", inputFiles, "/data/output", ".")
+		//	if err != nil {
+		//		l.Error("zip error", zap.Error(err))
+		//	}
+		//	//err = email.SendEmail("494340090@qq.com",conf.GetBSAConfig().Sends, "ngybgeetypogbibc", "smtp.qq.com","hx", conf.GetBSAConfig().Subject, conf.GetBSAConfig().Body, 25,false)
+		//	err = email.SendEmailWithPoolAndFile(conf.GetBSAConfig().Sends, "494340090@qq.com", "ngybgeetypogbibc", "smtp.qq.com", "hx", conf.GetBSAConfig().Subject, conf.GetBSAConfig().Body, 25, "/bsa/result.zip")
+		//}
+		//if err != nil {
+		//	l.Error("send email", zap.Error(err))
+		//} else {
+		//	l.Info("send email success")
+		//}
 	},
 }

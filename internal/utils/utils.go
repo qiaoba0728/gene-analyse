@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -109,41 +108,42 @@ func RemoveFirstBlank(param string) string {
 	}
 	return strings.Replace(param[index:], "\n", "", -1)
 }
-func GetKeggInfo(id string, client *http.Client) ([]*types.Kegg, error) {
-	result := make([]*types.Kegg, 0)
-	url := fmt.Sprintf("http://rest.kegg.jp/get/%s", id)
-	log.Println("post:", url)
-	resp, err := client.Post(url, http_content_type, nil)
-	if err != nil {
-		log.Println("http post error:", err.Error())
-		return result, err
-	}
-	defer resp.Body.Close()
-	rd := bufio.NewReader(resp.Body)
-	for {
-		line, err := rd.ReadString('\n') //以'\n'为结束符读入一行
-		if err != nil || io.EOF == err {
-			break
-		}
-		reg := regexp.MustCompile(`\sko[0-9]{5}\s`)
-		if reg == nil {
-			continue
-		}
-		match := reg.FindAllStringSubmatch(line, -1)
-		if len(match) != 0 {
-			index := match[0][0]
-			n := strings.Index(line, index)
-			res := line[n+len(index):]
-			//log.Println(n,index,res)
-			temp := &types.Kegg{
-				KOId:        strings.Replace(index, " ", "", -1),
-				Description: RemoveFirstBlank(res),
-			}
-			result = append(result, temp)
-		}
-	}
-	return result, nil
-}
+
+//func GetKeggInfo(id string, client *http.Client) ([]*types.Kegg, error) {
+//	result := make([]*types.Kegg, 0)
+//	url := fmt.Sprintf("http://rest.kegg.jp/get/%s", id)
+//	log.Println("post:", url)
+//	resp, err := client.Post(url, http_content_type, nil)
+//	if err != nil {
+//		log.Println("http post error:", err.Error())
+//		return result, err
+//	}
+//	defer resp.Body.Close()
+//	rd := bufio.NewReader(resp.Body)
+//	for {
+//		line, err := rd.ReadString('\n') //以'\n'为结束符读入一行
+//		if err != nil || io.EOF == err {
+//			break
+//		}
+//		reg := regexp.MustCompile(`\sko[0-9]{5}\s`)
+//		if reg == nil {
+//			continue
+//		}
+//		match := reg.FindAllStringSubmatch(line, -1)
+//		if len(match) != 0 {
+//			index := match[0][0]
+//			n := strings.Index(line, index)
+//			res := line[n+len(index):]
+//			//log.Println(n,index,res)
+//			temp := &types.Kegg{
+//				KOId:        strings.Replace(index, " ", "", -1),
+//				Description: RemoveFirstBlank(res),
+//			}
+//			result = append(result, temp)
+//		}
+//	}
+//	return result, nil
+//}
 func ReadCSV(file string) []string {
 	result := make([]string, 0)
 	f, err := os.Open(file)

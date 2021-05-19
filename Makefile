@@ -1,4 +1,4 @@
-# MDMP Makefile
+# gene Makefile
 
 GOCMD = GO111MODULE=on go
 VERSION = v0.0.1
@@ -50,7 +50,7 @@ clean:
 	@@rm -rf bin/*
 	@echo "-	clean completed!	-"
 docker: build
-	docker build -t git.internal.yunify.com/manage/gene-analyse:v0.0.1 .
+	docker build -t github.com/qiaoba0728/gene-analyse:v0.0.1 .
 
 
 .PHONY: install generate
