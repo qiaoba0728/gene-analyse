@@ -301,7 +301,6 @@ func (u *upStreamPlugin) fastq(dir string) error {
 	}
 	var wg sync.WaitGroup
 	var tp types.SampleType
-	var flag bool
 	for _, v := range files {
 		switch {
 		case strings.HasSuffix(v.Name(), types.R1Sample):
@@ -344,8 +343,8 @@ func (u *upStreamPlugin) fastq(dir string) error {
 			u.logger.Error("submit task run fail", zap.Error(err))
 		}
 	}
-	if !flag {
-		u.logger.Error("please check raw data(.R1.fastq.gz)")
+	if tp == 0 {
+		u.logger.Error("please check raw data")
 		return errors.New("please check raw data")
 	}
 	u.logger.Info("fastq -> clean waiting")
@@ -396,25 +395,27 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 		return err
 	}
 	var (
-		wg   sync.WaitGroup
-		flag bool
-		tp   types.SampleType
+		wg sync.WaitGroup
+		//flag bool
+		tp types.SampleType
 	)
 	for _, v := range files {
 		if u.tp == 0 {
 			switch {
-			case strings.HasSuffix(v.Name(), types.R1Sample):
+			case strings.HasSuffix(v.Name(), types.R1SampleClean):
 				tp = types.SampleType(1)
-			case strings.HasSuffix(v.Name(), types.R1SampleEx):
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanEx):
 				tp = types.SampleType(2)
-			case strings.HasSuffix(v.Name(), types.R1SampleFq):
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanFq):
 				tp = types.SampleType(3)
-			case strings.HasSuffix(v.Name(), types.R1SampleFqEx):
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanFqEx):
 				tp = types.SampleType(4)
 			default:
 				u.logger.Info("file name", zap.String("name", v.Name()))
 				continue
 			}
+		} else {
+			tp = u.tp
 		}
 		name := v.Name()
 		wg.Add(1)
@@ -422,7 +423,7 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 			defer func() {
 				//bar.Add(1)
 				wg.Done()
-				log.Println(name, "build map file success", types.HISAT2_OUT, name)
+				//log.Println(name, "build map file success", types.HISAT2_OUT, name)
 			}()
 			temp := strings.TrimSuffix(name, tp.CleanType())
 			cmd := exec.Command("hisat2", "--new-summary", "-p",
@@ -441,11 +442,10 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 			u.logger.Error("hisat2 submit task run fail", zap.Error(err))
 		}
 	}
-	if !flag {
-		u.logger.Error("please check raw data(*R1.clean.fastq.gz)")
+	if tp == 0 {
+		u.logger.Error("please check raw data(hisat2)")
 		return errors.New("please check clean data")
 	}
-	wg.Wait()
 	u.logger.Info("clean -> hisat2 waiting")
 	wg.Wait()
 	u.logger.Info("clean -> hisat2 finished")
