@@ -12,7 +12,7 @@ import (
 var bsapCmd = &cobra.Command{
 	Use:   "bsap",
 	Short: "gene-analyse plugin bsap",
-	Long:  "run gene-analyse plugin build bsap data",
+	Long:  "run gene-analyse plugin plot picture",
 	PreRun: func(cmd *cobra.Command, args []string) {
 	},
 	Run: func(cmd *cobra.Command, args []string) {

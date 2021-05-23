@@ -523,6 +523,7 @@ func (g *gatkPlugin) sort(dir string) error {
 				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 				if err = cmd.Run(); err != nil {
 					g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
 				}
 			}); err != nil {
 				g.logger.Error("samtools submit task run fail", zap.Error(err))
@@ -564,11 +565,12 @@ func (g *gatkPlugin) result() error {
 				temp := strings.TrimSuffix(name, ".sorted.bam")
 				cmd := exec.Command("gatk", "MarkDuplicates",
 					"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.SORTED_OUT, temp),
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.SORTED_OUT, temp))
 				defer func() {
 					//bar.Add(1)
 					wg.Done()
-					g.logger.Info("build featurecounts file success", zap.String("names", name))
+					g.logger.Info("build gatk file success", zap.String("names", name))
 				}()
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
@@ -587,6 +589,7 @@ func (g *gatkPlugin) result() error {
 					return
 				}
 				cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.SORTED_OUT, temp),
 					"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
@@ -597,6 +600,7 @@ func (g *gatkPlugin) result() error {
 					return
 				}
 				cmd = exec.Command("gatk", "GenotypeGVCFs", "-R", "gene.fa",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-V", fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp),
 					"-O", fmt.Sprintf("%s/%s.vcf", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
@@ -626,6 +630,7 @@ func (g *gatkPlugin) result() error {
 				}
 				//gatk SelectVariants -select-type SNP -V ${file}.vcf.gz -O ${file}.snp.vcf.gz
 				cmd = exec.Command("gatk", "SelectVariants", "-select-type",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"SNP", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp), "-O", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
@@ -636,8 +641,9 @@ func (g *gatkPlugin) result() error {
 				}
 				//gatk VariantFiltration -V ${file}.snp.vcf.gz --filter-expression "QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name "PASS" -O ${file}.snp.filter.vcf.gz
 				cmd = exec.Command("gatk", "VariantFiltration",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-V", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_OUT, temp),
-					"--filter-expression", `QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0`,
+					"--filter-expression", `'QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
 					"--filter-name", "PASS",
 					"-O", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
@@ -649,6 +655,7 @@ func (g *gatkPlugin) result() error {
 				}
 				//gatk SelectVariants -select-type INDEL -V ${file}.vcf.gz -O ${file}.indel.vcf.gz
 				cmd = exec.Command("gatk", "SelectVariants",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-select-type", "INDEL", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp),
 					"-O", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
@@ -660,8 +667,9 @@ func (g *gatkPlugin) result() error {
 				}
 				//gatk VariantFiltration -V ${file}.indel.vcf.gz --filter-expression "QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name "PASS" -O ${file}.indel.filter.vcf.gz
 				cmd = exec.Command("gatk", "VariantFiltration",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-V", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, temp),
-					"--filter-expression", `QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0`,
+					"--filter-expression", `'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
 					"--filter-name", "PASS",
 					"-O", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
@@ -673,6 +681,7 @@ func (g *gatkPlugin) result() error {
 				}
 				//gatk MergeVcfs -I ${file}.snp.filter.vcf.gz -I ${file}.indel.filter.vcf.gz -O ${file}.filter.vcf.gz
 				cmd = exec.Command("gatk", "MergeVcfs",
+					"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 					"-I", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_OUT, temp),
 					"-I", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, temp),
 					"-O", fmt.Sprintf("%s/%s.filter.vcf.gz", types.GATK_OUT, temp))

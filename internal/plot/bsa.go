@@ -27,7 +27,7 @@ func (b *bsapPlugin) Build(ctx context.Context) error {
 	if step == "" || window == "" || thread == "" {
 		return errors.New("env is not set")
 	}
-	cmd := exec.Command("Rscript", "/bsa/BSA_permutation_parallel.R", b.input, window, step, thread)
+	cmd := exec.Command("Rscript", "/work/BSA_permutation_parallel.R", b.input, window, step, thread)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	b.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
