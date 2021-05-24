@@ -226,6 +226,7 @@ func (r *reportPlugin) geneBodyCoverage(dir string) error {
 			if err = pool.Submit(func() {
 				temp := strings.TrimSuffix(name, ".sorted.bam")
 				cmd := exec.Command("geneBody_coverage.py", "-i", input,
+					"-f", "png",
 					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
 				defer func() {
