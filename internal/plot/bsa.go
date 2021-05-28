@@ -21,9 +21,9 @@ func NewBsapPlugin(input string, logger *zap.Logger) types.Plugin {
 	}
 }
 func (b *bsapPlugin) Build(ctx context.Context) error {
-	step := os.Getenv("step")
-	window := os.Getenv("window")
-	thread := os.Getenv("thread")
+	step := os.Getenv("STEP")
+	window := os.Getenv("WINDOW")
+	thread := os.Getenv("THREAD")
 	if step == "" || window == "" || thread == "" {
 		return errors.New("env is not set")
 	}
