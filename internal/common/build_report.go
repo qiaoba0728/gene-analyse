@@ -103,7 +103,7 @@ func BuildReport() error {
 				Name:            name,
 			}
 			afterSummary = append(afterSummary, after)
-			for i := 0; i < 150; i++ {
+			for i := 0; i < len(docs.Read1Before.QualityCurves.A); i++ {
 				read1BeforeQuality := &ReportQualityCurves{
 					Index: i,
 					A:     docs.Read1Before.QualityCurves.A[i],

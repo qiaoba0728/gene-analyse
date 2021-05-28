@@ -259,13 +259,13 @@ func (g *bsaRNAPlugin) pipeline() error {
 		window string
 		thread string
 	)
-	if step = os.Getenv("step"); step == "" {
+	if step = os.Getenv("STEP"); step == "" {
 		step = "500000"
 	}
-	if window = os.Getenv("window"); window == "" {
+	if window = os.Getenv("WINDOW"); window == "" {
 		window = "1000000"
 	}
-	if thread = os.Getenv("thread"); thread == "" {
+	if thread = os.Getenv("THREAD"); thread == "" {
 		thread = "10"
 	}
 	if len(g.samples) != 2 {

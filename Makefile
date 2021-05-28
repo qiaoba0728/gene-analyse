@@ -2,7 +2,7 @@
 
 GOCMD = GO111MODULE=on go
 VERSION = v0.0.1
-GIT_DIR = "gene-analyse"
+GIT_DIR = "github.com/qiaoba0728/gene-analyse"
 GIT_COMMIT=$(shell git rev-parse HEAD)
 GIT_BRANCH=$(shell git name-rev --name-only HEAD)
 BUILD_DATE=$(shell date '+%Y-%m-%d-%H:%M:%S')
