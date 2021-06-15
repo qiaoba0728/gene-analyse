@@ -17,6 +17,11 @@ import (
 	"sync"
 )
 
+const (
+	bam1 = "/data/output/smsnpMapper_out/smhisat2_out1/acc.sorted.bam"
+	bam2 = "/data/output/smsnpMapper_out/smhisat2_out2/acc.sorted.bam"
+)
+
 type bsaPlugin struct {
 	tp      types.SampleType
 	samples []string
@@ -325,4 +330,42 @@ func (g *bsaPlugin) pipeline() error {
 		return err
 	}
 	return nil
+}
+
+func (g *bsaPlugin) report() {
+	fa, err := g.getfa()
+	if err != nil {
+		g.logger.Error("samtools mpileup fail", zap.Error(err))
+		return
+	}
+	var wg sync.WaitGroup
+	go func() {
+		defer wg.Done()
+		cmd := exec.Command("/bin/sh", "-c",
+			fmt.Sprintf(`samtools mpileup -f %s %s |perl -alne '{$pos=int($F[1]/1000); $key="$F[0]\t$pos";$GC{$key}++ if $F[2]=~/[GC]/;$counts_sum{$key}+=$F[3];$number{$key}++;}END{print "$_\t$number{$_}\t$GC{$_}\t$counts_sum{$_}" foreach sort{$a<=>$b} keys %number}' > %s/%s.txt`,
+				fa, bam1,
+				types.REPORT_OUT, "bam1"))
+		g.logger.Info("samtools mpileup", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			g.logger.Error("samtools mpileup fail", zap.Error(err))
+			return
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		cmd := exec.Command("/bin/sh", "-c",
+			fmt.Sprintf(`samtools mpileup -f %s %s |perl -alne '{$pos=int($F[1]/1000); $key="$F[0]\t$pos";$GC{$key}++ if $F[2]=~/[GC]/;$counts_sum{$key}+=$F[3];$number{$key}++;}END{print "$_\t$number{$_}\t$GC{$_}\t$counts_sum{$_}" foreach sort{$a<=>$b} keys %number}' > %s/%s.txt`,
+				fa, bam2,
+				types.REPORT_OUT, "bam2"))
+		g.logger.Info("samtools mpileup", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			g.logger.Error("samtools mpileup fail", zap.Error(err))
+			return
+		}
+	}()
+	wg.Wait()
 }

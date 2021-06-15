@@ -68,13 +68,13 @@ func TestRemoveBlank(t *testing.T) {
 	t.Log(res)
 }
 func TestGetKeggInfo(t *testing.T) {
-	client := NewClient()
-	result, err := GetKeggInfo("K12843", client)
-	assert.Nil(t, err)
-	t.Log(len(result))
-	for _, v := range result {
-		t.Logf("%s,%s", v.KOId, v.Description)
-	}
+	//client := NewClient()
+	//result, err := GetKeggInfo("K12843", client)
+	//assert.Nil(t, err)
+	//t.Log(len(result))
+	//for _, v := range result {
+	//	t.Logf("%s,%s", v.KOId, v.Description)
+	//}
 }
 func TestCompressZip(t *testing.T) {
 	l, _ := NewZapLogger(&Opt{LogOutput: CONSOLE})
@@ -89,7 +89,7 @@ func TestZipFiles(t *testing.T) {
 	assert.Nil(t, err)
 }
 func TestUnZip(t *testing.T) {
-	err := UnZip("D://data//bsa//P_R1.clean_fastqc.zip", "D://data//bsa//")
+	err := UnZip("D://data//P_R1.clean_fastqc.zip", "D://data//bsa//")
 	if err != nil {
 		fmt.Println(err)
 	}

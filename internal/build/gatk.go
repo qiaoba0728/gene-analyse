@@ -221,14 +221,16 @@ func (g *gatkPlugin) Build(ctx context.Context) error {
 		}
 		//sam -> bam
 		if b := utils.IsExist(types.HISAT2_OUT); b {
-			if err := g.sort(types.HISAT2_OUT); err != nil {
-				g.logger.Error("create hisat2 sorted data fail", zap.Error(err))
-				return err
-			} else {
-				g.logger.Info("create hisat2 sorted data success")
+			if b := utils.IsExist(types.SORTED_OUT); !b || (b && utils.Files(types.SORTED_OUT) == 0) {
+				if err := g.sort(types.HISAT2_OUT); err != nil {
+					g.logger.Error("create hisat2 sorted data fail", zap.Error(err))
+					return err
+				} else {
+					g.logger.Info("create hisat2 sorted data success")
+				}
 			}
 		} else {
-			g.logger.Error("hisat2 sorted input not existed")
+			g.logger.Error("hisat2 dir input not existed")
 		}
 		//bam -> count
 		if b := utils.IsExist(types.GATK_OUT); b {
@@ -309,7 +311,7 @@ func (g *gatkPlugin) fastq(dir string) error {
 	}
 	//fastp -i "${temp}".R1.fastq.gz -I "${temp}".R2.fastq.gz -o ${fastp_out}/"${temp}".R1.clean.fastq.gz -O ${fastp_out}/"${temp}".R2.clean.fastq.gz > ${log}/fastp.log
 	//bar := u.bar.NewBar("fastq --> clean.fastq",len(files) / 2)
-	pool, err := ants.NewPool(4)
+	pool, err := ants.NewPool(8)
 	if err != nil {
 		return err
 	}
@@ -350,8 +352,7 @@ func (g *gatkPlugin) fastq(dir string) error {
 				"-o", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
 				"-O", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(tp.CleanType(), "1", "2", -1)),
 				"-h", fmt.Sprintf("%s/%s.html", types.FASTP_OUT, temp),
-				"-j", fmt.Sprintf("%s/%s.json", types.FASTP_OUT, temp),
-				">", types.LOG)
+				"-j", fmt.Sprintf("%s/%s.json", types.FASTP_OUT, temp))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			g.logger.Info("fastp run ", zap.String("cmd", cmd.String()))
@@ -364,10 +365,6 @@ func (g *gatkPlugin) fastq(dir string) error {
 	}
 	g.logger.Info("fastq -> clean waiting")
 	wg.Wait()
-	//if len(g.samples) != 2 {
-	//	g.logger.Error("sample num is error", zap.Strings("samples", g.samples))
-	//	return errors.New("sample num is error")
-	//}
 	g.logger.Info("fastq -> clean finished")
 	g.tp = tp
 	return nil
@@ -377,10 +374,6 @@ func (g *gatkPlugin) bwa(dir string) error {
 	if err != nil {
 		return err
 	}
-	//fa,err := g.getfa()
-	//if err != nil {
-	//	return err
-	//}
 	pool, err := ants.NewPool(4)
 	if err != nil {
 		return err
@@ -451,7 +444,7 @@ func (g *gatkPlugin) sort(dir string) error {
 	if err != nil {
 		return err
 	}
-	pool, err := ants.NewPool(10)
+	pool, err := ants.NewPool(8)
 	if err != nil {
 		return err
 	}
@@ -478,6 +471,24 @@ func (g *gatkPlugin) sort(dir string) error {
 					if err = cmd.Run(); err != nil {
 						g.logger.Error("samtools run fail", zap.Error(err), zap.String("cmd", cmd.String()))
 					}
+					cmd = exec.Command("samtools", "sort", "-@",
+						"4", fmt.Sprintf("%s/%s.bam", types.SORTED_OUT, temp),
+						"-o", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+					if err = cmd.Run(); err != nil {
+						g.logger.Error("samtools sorted run fail", zap.Error(err))
+					}
+					cmd = exec.Command("samtools", "index", "-@",
+						"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+					//cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+					if err = cmd.Run(); err != nil {
+						g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+						return
+					}
 				}); err != nil {
 					g.logger.Error("samtools submit task run fail", zap.Error(err))
 				}
@@ -488,52 +499,6 @@ func (g *gatkPlugin) sort(dir string) error {
 	} else {
 		g.logger.Info("create bam success")
 	}
-	pool, err = ants.NewPool(10)
-	if err != nil {
-		return err
-	}
-	files, err = ioutil.ReadDir(types.SORTED_OUT)
-	if err != nil {
-		return err
-	}
-	//bar = u.bar.NewBar("bam --> bam sort",len(files))
-	for _, v := range files {
-		if strings.HasSuffix(v.Name(), ".bam") && !strings.HasSuffix(v.Name(), ".sorted.bam") {
-			name := v.Name()
-			wg.Add(1)
-			if err = pool.Submit(func() {
-				defer func() {
-					//bar.Add(1)
-					wg.Done()
-					g.logger.Info("build bam sorted file success", zap.String("name", name))
-				}()
-				temp := strings.TrimSuffix(name, ".bam")
-				cmd := exec.Command("samtools", "sort", "-@",
-					"4", fmt.Sprintf("%s/%s", types.SORTED_OUT, name),
-					"-o", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-				if err = cmd.Run(); err != nil {
-					g.logger.Error("samtools sorted run fail", zap.Error(err))
-				}
-				cmd = exec.Command("samtools", "index", "-@",
-					"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
-				//cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-				if err = cmd.Run(); err != nil {
-					g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
-					return
-				}
-			}); err != nil {
-				g.logger.Error("samtools submit task run fail", zap.Error(err))
-			}
-		}
-	}
-	g.logger.Info("sam -> sort bam and index bam waiting")
-	wg.Wait()
-	g.logger.Info("sam -> sort bam and index bam finished")
 	return nil
 }
 func (g *gatkPlugin) result() error {
@@ -577,7 +542,7 @@ func (g *gatkPlugin) result() error {
 					g.logger.Info("build gatk file success", zap.String("names", name))
 				}()
 				cmd := exec.Command("gatk", "--java-options", "-Xmx8G", "MarkDuplicates",
-					"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.SORTED_OUT, temp),
+					"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
 					"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.SORTED_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
@@ -587,7 +552,7 @@ func (g *gatkPlugin) result() error {
 					return
 				}
 				cmd = exec.Command("samtools", "index",
-					fmt.Sprintf("%s/%s.markdup.bam", types.SORTED_OUT, temp))
+					fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
@@ -597,7 +562,7 @@ func (g *gatkPlugin) result() error {
 				}
 				cmd = exec.Command("gatk", "--java-options", "-Xmx8G", "HaplotypeCaller", "-R", "gene.fa",
 					//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-					"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.SORTED_OUT, temp),
+					"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
 					"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
@@ -645,19 +610,22 @@ func (g *gatkPlugin) result() error {
 					return
 				}
 				//gatk VariantFiltration -V ${file}.snp.vcf.gz --filter-expression "QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name "PASS" -O ${file}.snp.filter.vcf.gz
-				cmd = exec.Command("gatk", "VariantFiltration",
-					//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-					"-V", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_OUT, temp),
-					"--filter-expression", `'QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
-					"--filter-name", "PASS",
-					"-O", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_OUT, temp))
+				//cmd = exec.Command("gatk", "VariantFiltration",
+				//	//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+				//	"-V", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_OUT, temp),
+				//	"--filter-expression", `'QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
+				//	"--filter-name", "PASS",
+				//	"-O", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_OUT, temp))
+				cmd = exec.Command("/bin/sh", "-c",
+					fmt.Sprintf(`gatk VariantFiltration -V %s/%s.snp.vcf.gz --filter-expression 'QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0' --filter-name PASS -O %s/%s.snp.filter.vcf.gz`,
+						types.GATK_OUT, temp,
+						types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 				if err = cmd.Run(); err != nil {
-					g.logger.Warn("run gatk VariantFiltration bam", zap.Error(err), zap.String("cmd", cmd.String()))
-					//todo need fix
-					//return
+					g.logger.Error("run gatk VariantFiltration bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
 				}
 				//gatk SelectVariants -select-type INDEL -V ${file}.vcf.gz -O ${file}.indel.vcf.gz
 				cmd = exec.Command("gatk", "SelectVariants",
@@ -672,18 +640,22 @@ func (g *gatkPlugin) result() error {
 					return
 				}
 				//gatk VariantFiltration -V ${file}.indel.vcf.gz --filter-expression "QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filter-name "PASS" -O ${file}.indel.filter.vcf.gz
-				cmd = exec.Command("gatk", "--java-options", "-Xmx8G", "VariantFiltration",
-					//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-					"-V", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, temp),
-					"--filter-expression", `'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
-					"--filter-name", "PASS",
-					"-O", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, temp))
+				//cmd = exec.Command("gatk", "--java-options", "-Xmx8G", "VariantFiltration",
+				//	//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+				//	"-V", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, temp),
+				//	"--filter-expression", `'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
+				//	"--filter-name", "PASS",
+				//	"-O", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, temp))
+				cmd = exec.Command("/bin/sh", "-c",
+					fmt.Sprintf(`gatk VariantFiltration -V %s/%s.indel.vcf.gz --filter-expression 'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0' --filter-name PASS -O %s/%s.indel.filter.vcf.gz`,
+						types.GATK_OUT, temp,
+						types.GATK_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 				if err = cmd.Run(); err != nil {
-					g.logger.Warn("run gatk VariantFiltration bam", zap.Error(err), zap.String("cmd", cmd.String()))
-					//return
+					g.logger.Error("run gatk VariantFiltration bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
 				}
 				//gatk MergeVcfs -I ${file}.snp.filter.vcf.gz -I ${file}.indel.filter.vcf.gz -O ${file}.filter.vcf.gz
 				cmd = exec.Command("gatk", "--java-options", "-Xmx8G", "MergeVcfs",

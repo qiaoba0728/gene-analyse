@@ -23,12 +23,16 @@ var testCmd = &cobra.Command{
 		//} else {
 		//	l.Info("report finished")
 		//}
-		command := exec.Command("gatk", "VariantFiltration",
-			//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-			"-V", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, "10Z"),
-			"--filter-expression", `'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'`,
-			"--filter-name", "PASS",
-			"-O", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, "10Z"))
+		//command := exec.Command("gatk", "VariantFiltration",
+		//	//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+		//	"-V", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, "W"),
+		//	"--filter-expression", "'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0'",
+		//	"--filter-name", "PASS",
+		//	"-O", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", "/work", "10Z"))
+		command := exec.Command("/bin/sh", "-c",
+			fmt.Sprintf(`gatk VariantFiltration -V %s/%s.indel.vcf.gz --filter-expression 'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0' --filter-name PASS -O %s/%s.indel.filter.vcf.gz`,
+				types.GATK_OUT, "W",
+				"/work", "10Z"))
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
 		//g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))

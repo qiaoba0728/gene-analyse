@@ -293,7 +293,7 @@ func UnZip(file string, target string) error {
 	for _, k := range r.Reader.File {
 		if k.FileInfo().IsDir() {
 			file := fmt.Sprintf("%s/%s", target, k.Name)
-			err := os.MkdirAll(file, 0644)
+			err := os.MkdirAll(file, 0755)
 			if err != nil {
 				fmt.Println(err)
 			}
