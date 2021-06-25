@@ -11,6 +11,7 @@ const (
 	GENOME_PREFIX = "/data/input/index/Species"
 	GENOME_INDEX  = "/data/input/index"
 	REPORT_OUT    = "/data/output/report_result"
+	BSA_DNA_OUT   = "/data/output/bsa_result"
 	HISAT2_OUT    = "/data/output/hisat2_result"
 	SORTED_OUT    = "/data/output/sorted_result"
 	SINGLE_OUT    = "/data/output/single_result"

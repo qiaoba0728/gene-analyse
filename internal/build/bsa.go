@@ -102,6 +102,25 @@ func (g *bsaPlugin) Build(ctx context.Context) error {
 			g.logger.Warn("report out", zap.Strings("files", names))
 		}
 	}
+	if b := utils.IsExist(types.BSA_DNA_OUT); !b {
+		cmd := exec.Command("mkdir", "-p", types.BSA_DNA_OUT)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("create bsa dna dir", zap.Error(err))
+		}
+	} else {
+		files, err := ioutil.ReadDir(types.BSA_DNA_OUT)
+		if err != nil {
+			g.logger.Error("existed bsa dna dir", zap.Error(err))
+		} else {
+			names := make([]string, 0)
+			for _, v := range files {
+				names = append(names, v.Name())
+			}
+			g.logger.Warn("bsa dna out", zap.Strings("files", names))
+		}
+	}
 	if b := utils.IsExist(types.FASTP_OUT); !b {
 		cmd := exec.Command("mkdir", "-p", types.FASTP_OUT)
 		cmd.Stdout = os.Stdout

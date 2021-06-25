@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	bam1 = "/data/output/smsnpMapper_out/smhisat2_out1/acc.sorted.bam"
-	bam2 = "/data/output/smsnpMapper_out/smhisat2_out2/acc.sorted.bam"
+//bam1 = "/data/output/smsnpMapper_out/smhisat2_out1/acc.sorted.bam"
+//bam2 = "/data/output/smsnpMapper_out/smhisat2_out2/acc.sorted.bam"
 )
 
 type reportPlugin struct {
@@ -39,7 +39,7 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 	if utils.IsExist(types.SORTED_OUT) {
 		go func() {
 			defer wg.Done()
@@ -58,11 +58,17 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		//	if err = r.readQuality();err != nil {
 		//		r.logger.Error("readQuality",zap.Error(err))
 		//	}
-		//}()
+		//}()geneDepthCoverage
 		go func() {
 			defer wg.Done()
 			if err = r.rpkmSaturation(types.SORTED_OUT); err != nil {
 				r.logger.Error("rpkmSaturation", zap.Error(err))
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if err = r.geneDepthCoverage(types.SORTED_OUT); err != nil {
+				r.logger.Error("geneDepthCoverage", zap.Error(err))
 			}
 		}()
 	} else {
@@ -88,6 +94,12 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 			defer wg.Done()
 			if err = r.rpkmSaturationEx(); err != nil {
 				r.logger.Error("rpkmSaturation", zap.Error(err))
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if err = r.geneDepthCoverageEx(types.SORTED_OUT); err != nil {
+				r.logger.Error("geneDepthCoverageEx", zap.Error(err))
 			}
 		}()
 	}
@@ -274,6 +286,114 @@ func (r *reportPlugin) geneBodyCoverageEx() error {
 	if err = cmd.Run(); err != nil {
 		r.logger.Error("build all geneBody_coverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
 	}
+	return nil
+}
+func (r *reportPlugin) geneDepthCoverage(dir string) error {
+	var (
+		err    error
+		pool   *ants.Pool
+		files  []os.FileInfo
+		wg     sync.WaitGroup
+		inputs []string
+	)
+	pool, err = ants.NewPool(4)
+	if err != nil {
+		return err
+	}
+	//bar := e.bar.NewBar("featurecounts",len(files))
+	files, err = ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".sorted.bam") {
+			wg.Add(1)
+			name := v.Name()
+			//r := path.Join(wd,"script","featurecounts.R")
+			input := path.Join(dir, name)
+			inputs = append(inputs, input)
+			if err = pool.Submit(func() {
+				temp := strings.TrimSuffix(name, ".sorted.bam")
+				if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, temp)) {
+					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err = cmd.Run(); err != nil {
+						r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					}
+				}
+				cmd := exec.Command("bamdst ", "-p",
+					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
+					input)
+				defer func() {
+					//bar.Add(1)
+					wg.Done()
+					r.logger.Info("geneDepthCoverage file success", zap.String("name", name))
+				}()
+				r.logger.Info("run geneDepthCoverage", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("geneDepthCoverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}); err != nil {
+				r.logger.Error("pool run fail", zap.Error(err))
+			}
+		}
+	}
+	wg.Wait()
+	return nil
+}
+func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
+	var (
+		err error
+	)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1")) {
+			cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err = cmd.Run(); err != nil {
+				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+			}
+		}
+		cmd := exec.Command("bamdst ", "-p",
+			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"),
+			bam1)
+		r.logger.Info("run geneDepthCoverageEx", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			r.logger.Error("build all geneDepthCoverageEx bam", zap.Error(err), zap.String("cmd", cmd.String()))
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2")) {
+			cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err = cmd.Run(); err != nil {
+				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+			}
+		}
+		cmd := exec.Command("bamdst ", "-p",
+			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"),
+			bam2)
+		r.logger.Info("run geneDepthCoverageEx", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			r.logger.Error("build all geneDepthCoverageEx bam", zap.Error(err), zap.String("cmd", cmd.String()))
+		}
+	}()
+	wg.Wait()
 	return nil
 }
 func (r *reportPlugin) getGTF() (string, error) {

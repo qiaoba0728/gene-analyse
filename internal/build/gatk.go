@@ -541,6 +541,7 @@ func (g *gatkPlugin) result() error {
 					wg.Done()
 					g.logger.Info("build gatk file success", zap.String("names", name))
 				}()
+				//标记重复序列
 				cmd := exec.Command("gatk", "--java-options", "-Xmx8G", "MarkDuplicates",
 					"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
 					"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.SORTED_OUT, temp))
