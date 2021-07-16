@@ -94,3 +94,7 @@ func TestUnZip(t *testing.T) {
 		fmt.Println(err)
 	}
 }
+func TestDelSuf(t *testing.T) {
+	err := DelSuf("D://data", ".txt")
+	assert.Nil(t, err)
+}

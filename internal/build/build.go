@@ -323,7 +323,7 @@ func (u *upStreamPlugin) fastq(dir string) error {
 				wg.Done()
 				u.logger.Info("build clean file success", zap.String("name", name))
 			}()
-			temp := strings.TrimSuffix(name, ".R1.fastq.gz")
+			temp := strings.TrimSuffix(name, tp.Type())
 			u.logger.Info("fastq -> clean", zap.String("source1", name), zap.String("source2", fmt.Sprintf("%s.R2.clean.fastq.gz", temp)))
 			cmd := exec.Command("fastp", "-i",
 				fmt.Sprintf("%s/%s%s", types.INPUT, temp, tp.Type()),
@@ -414,10 +414,12 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 				u.logger.Info("file name", zap.String("name", v.Name()))
 				continue
 			}
+			u.tp = tp
 		} else {
 			tp = u.tp
 		}
 		name := v.Name()
+		u.logger.Info("start hisat2", zap.String("name", name), zap.String("tp", u.tp.CleanType()))
 		wg.Add(1)
 		if err = pool.Submit(func() {
 			defer func() {
@@ -425,18 +427,20 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 				wg.Done()
 				//log.Println(name, "build map file success", types.HISAT2_OUT, name)
 			}()
-			temp := strings.TrimSuffix(name, tp.CleanType())
-			cmd := exec.Command("hisat2", "--new-summary", "-p",
-				"4", "-x", types.GENOME_PREFIX,
-				"-1", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
-				"-2", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
-				"-S", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),
-				"--summary-file", fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
-			//cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-			if err = cmd.Run(); err != nil {
-				u.logger.Error("hisat2 run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+			if strings.HasSuffix(name, u.tp.CleanType()) {
+				temp := strings.TrimSuffix(name, u.tp.CleanType())
+				cmd := exec.Command("hisat2", "--new-summary", "-p",
+					"4", "-x", types.GENOME_PREFIX,
+					"-1", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, u.tp.CleanType()),
+					"-2", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(u.tp.CleanType(), "1", "2", -1)),
+					"-S", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),
+					"--summary-file", fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
+				//cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err = cmd.Run(); err != nil {
+					u.logger.Error("hisat2 run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
 			}
 		}); err != nil {
 			u.logger.Error("hisat2 submit task run fail", zap.Error(err))

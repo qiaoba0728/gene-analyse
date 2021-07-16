@@ -11,9 +11,12 @@ package utils
 import (
 	"go.uber.org/zap"
 	"testing"
+	"time"
 )
 
 func TestNewZapLogger(t *testing.T) {
 	l, _ := NewZapLogger(&Opt{LogOutput: CONSOLE})
-	l.Named("test").Info("hello world", zap.String("err", "error"))
+	start := time.Now()
+	time.Sleep(1 * time.Second)
+	l.Named("test").Info("hello world", zap.String("err", "error"), zap.Duration("lost", time.Now().Sub(start)))
 }

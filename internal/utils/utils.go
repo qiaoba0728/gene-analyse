@@ -315,3 +315,21 @@ func UnZip(file string, target string) error {
 	}
 	return nil
 }
+
+func DelSuf(dir, suf string) error {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), suf) {
+			cmd := exec.Command("rm", "-rf", fmt.Sprintf("%s/%s", dir, v.Name()))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
