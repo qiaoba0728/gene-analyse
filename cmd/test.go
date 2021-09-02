@@ -1,16 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/qiaoba0728/gene-analyse/internal/types"
-	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
 )
 
 var testCmd = &cobra.Command{
