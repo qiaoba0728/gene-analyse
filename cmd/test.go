@@ -1,12 +1,21 @@
 package cmd
 
 import (
+	"fmt"
+	"github.com/qiaoba0728/gene-analyse/internal/types"
+	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 )
 
 var testCmd = &cobra.Command{
 	Use:   "test",
-	Short: "test gene-analyse plugin test dev",
+	Short: "test gene-analyse plugin test",
 	Long:  "run gene-analyse plugin build test data",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		//conf.InitConfig(cfgFile)
