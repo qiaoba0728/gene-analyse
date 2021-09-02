@@ -281,8 +281,9 @@ func (e *expressionPlugin) matrix() error {
 	wd, _ := os.Getwd()
 	input := path.Join(types.EXPRESSION_OUT, "gene.count")
 	output := path.Join(types.EXPRESSION_OUT, "gene_count.csv")
+	outputXls := path.Join(types.EXPRESSION_OUT, "gene_count.xls")
 	cmd := exec.Command("Rscript", path.Join(wd, "script", "matrix_count.R"),
-		input, output)
+		input, output, outputXls)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -291,8 +292,9 @@ func (e *expressionPlugin) matrix() error {
 	}
 	input = path.Join(types.EXPRESSION_OUT, "gene.tpm")
 	output = path.Join(types.EXPRESSION_OUT, "gene_tpm.csv")
+	outputXls = path.Join(types.EXPRESSION_OUT, "gene_tpm.xls")
 	cmd = exec.Command("Rscript", path.Join(wd, "script", "matrix_tpm.R"),
-		input, output)
+		input, output, outputXls)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -301,8 +303,9 @@ func (e *expressionPlugin) matrix() error {
 	}
 	input = path.Join(types.EXPRESSION_OUT, "gene.fpkm")
 	output = path.Join(types.EXPRESSION_OUT, "gene_fpkm.csv")
+	outputXls = path.Join(types.EXPRESSION_OUT, "gene_fpkm.xls")
 	cmd = exec.Command("Rscript", path.Join(wd, "script", "matrix_fpkm.R"),
-		input, output)
+		input, output, outputXls)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

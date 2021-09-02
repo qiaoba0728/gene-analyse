@@ -66,15 +66,19 @@ dim(resdata_filter)
 head(resdata_filter)
 filterName <- paste0(output,"/diffexpr-",name,"-0.05.txt")
 filterName
+
+filterNameXls <- paste0(output,"/diffexpr-",name,"-0.05.csv")
 #过滤后的文件
 write.table(resdata_filter, file=filterName,sep="\t",row.names=F)
-
+write.csv(resdata_filter, filterNameXls,row.names = T)
 
 
 resName <- paste0(output,"/diffexpr-",name,".all.txt")
 resName
-write.table(resdata, file=paste(resName,sep=""),quote=F,sep="\t",row.names=F) 
 
+resNameXls <- paste0(output,"/diffexpr-",name,".all.xls")
+write.table(resdata, file=paste(resName,sep=""),quote=F,sep="\t",row.names=F) 
+write.csv(resdata, resNameXls,row.names = T)
 #MAplot
 pdf(paste0(output,"/",name,"_MAplot.pdf"))
 plotMA(res, main=paste0(output,"/",name,("_MAplot"), ylim=c(-10,10)))

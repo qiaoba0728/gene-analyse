@@ -322,7 +322,7 @@ func (r *reportPlugin) geneDepthCoverage(dir string) error {
 						r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 					}
 				}
-				cmd := exec.Command("bamdst ", "-p",
+				cmd := exec.Command("bamdst", "-p",
 					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
 					input)
@@ -361,7 +361,7 @@ func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
 				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
 		}
-		cmd := exec.Command("bamdst ", "-p",
+		cmd := exec.Command("bamdst", "-p",
 			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"),
 			bam1)
@@ -382,7 +382,7 @@ func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
 				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
 		}
-		cmd := exec.Command("bamdst ", "-p",
+		cmd := exec.Command("bamdst", "-p",
 			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"),
 			bam2)

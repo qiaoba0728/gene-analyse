@@ -30,10 +30,18 @@ var gatkCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
-		plugin := build.NewGATKPlugin(l.Named("build"))
-		if err = plugin.Build(context.Background()); err != nil {
-			l.Error("gatk data build ", zap.Error(err))
-			return
+		if len(args) == 1 && args[0] == "result" {
+			plugin := build.NewGATKResultPlugin(l.Named("result"))
+			if err = plugin.Build(context.Background()); err != nil {
+				l.Error("gatk result data build ", zap.Error(err))
+				return
+			}
+		} else {
+			plugin := build.NewGATKPlugin(l.Named("build"))
+			if err = plugin.Build(context.Background()); err != nil {
+				l.Error("gatk data build ", zap.Error(err))
+				return
+			}
 		}
 		//email := common.NewQQEmail(l.Named("email"))
 		//if err != nil {

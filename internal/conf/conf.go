@@ -14,10 +14,18 @@ type Group struct {
 	StartRepeated string `json:"startRepeated"` //重复数目
 	EndRepeated   string `json:"endRepeated"`   //重复数目
 	Output        string `json:"output"`        //生成的文件目录
+	Richer        bool   `json:"richer"`        //go kegg分析
+}
+type DiffGroup struct {
+	Name   string   `json:"name"` //生成图片名字
+	Groups []string `json:"groups"`
+	Output string   `json:"output"` //生成的文件目录
+	Richer bool     `json:"richer"` //go kegg分析
 }
 type Config struct {
 	//File string `json:"file"`			//基因文件位置
-	Group []*Group `json:"group"`
+	Group     []*Group   `json:"group"`
+	DiffGroup *DiffGroup `json:"diffGroup"`
 }
 
 var (
