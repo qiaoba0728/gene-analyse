@@ -6,7 +6,7 @@ import (
 
 var testCmd = &cobra.Command{
 	Use:   "test",
-	Short: "test gene-analyse plugin",
+	Short: "test gene-analyse plugin test dev",
 	Long:  "run gene-analyse plugin build test data",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		//conf.InitConfig(cfgFile)
