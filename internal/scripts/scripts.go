@@ -355,8 +355,8 @@ write.csv(data,file=paste(args[2],"merge.csv",sep = "_"),row.names = F)
 	NOMODE_GO = `
 if(! require(clusterProfiler))
         install.packages("clusterProfiler")
-#install.packages("org.Rsativus.eg.db", repos = NULL, type = "source")
-library(org.Rsativus.eg.db)
+install.packages("%s", repos = NULL, type = "source")
+library(%s)
 library(clusterProfiler)
 args=commandArgs(T)
 print(args[1])
@@ -369,18 +369,18 @@ ego_all_0.05 <- enrichGO(gene = glist,
                         #模式物种
                         #OrgDb = org.Mm.eg.db,
                         #非模式物种
-                        OrgDb = org.Rsativus.eg.db,
+                        OrgDb = %s,
                         ont = "ALL", #ALL或BP或MF或CC
                         pAdjustMethod = "BH",
                         pvalueCutoff  = 0.05,
                         qvalueCutoff  = 0.05)
 #data = as.data.frame(ego_all_0.05)
 pdf(paste(args[2],"go_enrich.dotplot.pdf",sep = "_"))
-dotplot(ego_all_0.05,showCategory=10, font.size = 8)
+dotplot(ego_all_0.05,showCategory=30, font.size = 8)
 dev.off()
 
-pdf(paste(args[2],"go_enrich.dotplot.png",sep = "_"))
-dotplot(ego_all_0.05,showCategory=10, font.size = 8)
+png(paste(args[2],"go_enrich.dotplot.png",sep = "_"))
+dotplot(ego_all_0.05,showCategory=30, font.size = 8)
 dev.off()
 
 
@@ -415,8 +415,95 @@ pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"))
 ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
 dev.off()
 
-pdf(paste(args[2],"go_enrich_q_0.05.png",sep = "_"))
+png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"))
 ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
+dev.off()
+`
+	NOMODE_GO_EX = `
+args=commandArgs(T)
+print(args[1])
+print(args[2])
+display_number = c(10, 10, 10)
+## GO enrichment with clusterProfiler
+if(! require(clusterProfiler))
+        install.packages("clusterProfiler")
+install.packages("%s", repos = NULL, type = "source")
+library(%s)
+library(clusterProfiler)
+glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
+ego_MF <- enrichGO(OrgDb=%s,
+             gene = glist,
+ 	           keyType="GID",
+             pvalueCutoff = 0.05,
+             ont = "MF")
+ego_result_MF <-  na.omit(as.data.frame(ego_MF)[1:display_number[1], ])
+# ego_result_MF <- ego_result_MF[order(ego_result_MF$Count),]
+nrow(ego_result_MF)
+ego_CC <- enrichGO(OrgDb=%s,
+                   gene = glist,
+                   pvalueCutoff = 0.05,
+		               keyType="GID",
+                   ont = "CC")
+                  # readable=TRUE)
+ego_result_CC <-  na.omit(as.data.frame(ego_CC)[1:display_number[2], ])
+# ego_result_CC <- ego_result_CC[order(ego_result_CC$Count),]
+nrow(ego_result_CC)
+ego_BP <- enrichGO(OrgDb=%s,
+                   gene = glist,
+		               keyType="GID",
+                   pvalueCutoff = 0.05,
+                   ont = "BP")
+                   #readable=TRUE)
+ego_result_BP <- na.omit(as.data.frame(ego_BP)[1:display_number[3], ])
+# ego_result_BP <- ego_result_BP[order(ego_result_BP$Count),]
+nrow(ego_result_BP)
+go_enrich_df <- data.frame(ID=c(ego_result_BP$ID, ego_result_CC$ID, ego_result_MF$ID),
+                                   Description=c(ego_result_BP$Description, ego_result_CC$Description, ego_result_MF$Description),
+                                   GeneNumber=c(ego_result_BP$Count, ego_result_CC$Count, ego_result_MF$Count),
+                                   type=factor(c(rep("biological process", nrow(ego_result_BP)), rep("cellular component", nrow(ego_result_CC)),
+                                          rep("molecular function", nrow(ego_result_MF))), levels=c("biological process", "cellular component","molecular function")))
+
+## numbers as data on x axis
+go_enrich_df$number <- factor(rev(1:nrow(go_enrich_df)))
+## shorten the names of GO terms
+shorten_names <- function(x, n_word=4, n_char=40){
+  if (length(strsplit(x, " ")[[1]]) > n_word || (nchar(x) > 40))
+  {
+    if (nchar(x) > 40) x <- substr(x, 1, 40)
+    x <- paste(paste(strsplit(x, " ")[[1]][1:min(length(strsplit(x," ")[[1]]), n_word)],
+                       collapse=" "), "...", sep="")
+    return(x)
+  } 
+  else
+  {
+    return(x)
+  }
+}
+nrow(go_enrich_df)
+labels=(sapply(
+  levels(factor(go_enrich_df$Description)),
+  shorten_names))
+
+names(labels)=factor(rev(1:nrow(go_enrich_df)))
+#names(labels) = rev(1:nrow(go_enrich_df))
+# nrow(go_enrich_df)
+# rev(1:nrow(go_enrich_df))
+
+## colors for bar // green, blue, orange
+CPCOLS <- c("#8DA1CB", "#FD8D62", "#66C3A5")
+library(ggplot2)
+p <- ggplot(data=go_enrich_df, aes(x=number, y=GeneNumber, fill=type)) +
+  geom_bar(stat="identity", width=0.8) + coord_flip() + 
+  scale_fill_manual(values = CPCOLS) + theme_bw() + 
+  scale_x_discrete(labels=labels) +
+  xlab("GO term") + 
+  theme(axis.text=element_text(face = "bold", color="gray50")) +
+  labs(title = "The Most Enriched GO Terms")
+pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"))
+p
+dev.off()
+png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"))
+p
 dev.off()
 `
 	NOMODO_KEGG = `
@@ -435,8 +522,8 @@ if(! require(tidyverse))
 ################################################
 # 导入自己构建的 OrgDb
 ################################################
-library(org.Rsativus.eg.db)
-columns(org.Rsativus.eg.db)
+library(%s)
+columns(%s)
 
 ########################################################################################
 # 导入需要进行富集分析的基因列表，并转换为向量
@@ -453,10 +540,10 @@ glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
 # 从 OrgDB 提取 Pathway 和基因的对应关系
 ################################################
 
-pathway2gene <- AnnotationDbi::select(org.Rsativus.eg.db, 
-                                      keys = keys(org.Rsativus.eg.db), 
-                                      columns = c("Pathway")) %>%
-  na.omit() %>%
+pathway2gene <- AnnotationDbi::select(%s, 
+                                      keys = keys(%s), 
+                                      columns = c("Pathway")) %%>%%
+  na.omit() %%>%%
   dplyr::select(Pathway, GID)
 
 ################################################
@@ -484,7 +571,7 @@ if(!file.exists('kegg_info.RData')){
           pathway_info <- kegg[["children"]][["children"]][[a]][["children"]][[b]][["name"]][[c]]
 
           pathway_id <- str_match(pathway_info, "ko[0-9]{5}")[1]
-          pathway_name <- str_replace(pathway_info, " \\[PATH:ko[0-9]{5}\\]", "") %>% str_replace("[0-9]{5} ", "")
+          pathway_name <- str_replace(pathway_info, " \\[PATH:ko[0-9]{5}\\]", "") %%>%% str_replace("[0-9]{5} ", "")
           pathway2name <- rbind(pathway2name, tibble(Pathway = pathway_id, Name = pathway_name))
 
           kos_info <- kegg[["children"]][["children"]][[a]][["children"]][[b]][["children"]][[c]][["name"]]

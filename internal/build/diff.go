@@ -41,12 +41,21 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("nomode_kegg.R", scripts.NOMODO_KEGG)
+	geneDB := fmt.Sprintf("org.%s.eg.db", g.config.GeneDB)
+	err = utils.WriteFile("nomode_kegg.R", fmt.Sprintf(scripts.NOMODO_KEGG, geneDB,
+		geneDB, geneDB, geneDB))
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("nomode_go.R", scripts.NOMODE_GO)
+	err = utils.WriteFile("nomode_go.R", fmt.Sprintf(scripts.NOMODE_GO, geneDB,
+		geneDB, geneDB))
+	if err != nil {
+		g.logger.Error("cmd run fail", zap.Error(err))
+		return err
+	}
+	err = utils.WriteFile("nomode_go_ex.R", fmt.Sprintf(scripts.NOMODE_GO_EX, geneDB,
+		geneDB, geneDB, geneDB, geneDB))
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
@@ -94,7 +103,7 @@ func (g *genePlugin) Build(ctx context.Context) error {
 				return err
 			}
 			inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
-			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go.R"),
+			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
 				path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
 				fmt.Sprintf("%s/%s", v.Output, v.Name))
 			cmd.Stdout = os.Stdout
@@ -134,7 +143,7 @@ func (g *genePlugin) Build(ctx context.Context) error {
 			g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
 			return err
 		}
-		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go.R"),
+		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
 			fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
 			fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
 		cmd.Stdout = os.Stdout

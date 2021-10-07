@@ -546,6 +546,7 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 			if err = pool.Submit(func() {
 				temp := strings.TrimSuffix(name, ".sorted.bam")
 				cmd := exec.Command("RPKM_saturation.py", "-i", input,
+					"-f", "png",
 					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
 				defer func() {
@@ -558,6 +559,22 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
 					r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				} else {
+					//出png的图片
+					cmd = exec.Command("sed", "-i", "s/pdf/png/g",
+						fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err = cmd.Run(); err != nil {
+						r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					} else {
+						cmd = exec.Command("Rscript", fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						if err = cmd.Run(); err != nil {
+							r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+						}
+					}
 				}
 			}); err != nil {
 				r.logger.Error("pool RPKM_saturation run fail", zap.Error(err))

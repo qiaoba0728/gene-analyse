@@ -23,6 +23,7 @@ type DiffGroup struct {
 	Richer bool     `json:"richer"` //go kegg分析
 }
 type Config struct {
+	GeneDB string `json:"geneDB"` //['Rsativus']
 	//File string `json:"file"`			//基因文件位置
 	Group     []*Group   `json:"group"`
 	DiffGroup *DiffGroup `json:"diffGroup"`
