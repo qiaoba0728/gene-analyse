@@ -436,7 +436,10 @@ ego_MF <- enrichGO(OrgDb=%s,
  	           keyType="GID",
              pvalueCutoff = 0.05,
              ont = "MF")
-ego_result_MF <-  na.omit(as.data.frame(ego_MF)[1:display_number[1], ])
+ego_MF=as.data.frame(ego_MF)
+ego_MF=ego_MF[order(ego_MF$Count,decreasing = T),]
+ego_MF
+ego_result_MF <-  na.omit(ego_MF[1:display_number[1], ])
 # ego_result_MF <- ego_result_MF[order(ego_result_MF$Count),]
 nrow(ego_result_MF)
 ego_CC <- enrichGO(OrgDb=%s,
@@ -445,7 +448,10 @@ ego_CC <- enrichGO(OrgDb=%s,
 		               keyType="GID",
                    ont = "CC")
                   # readable=TRUE)
-ego_result_CC <-  na.omit(as.data.frame(ego_CC)[1:display_number[2], ])
+
+ego_CC=as.data.frame(ego_CC)
+ego_CC=ego_CC[order(ego_CC$Count,decreasing = T),]
+ego_result_CC <-  na.omit(ego_CC[1:display_number[2], ])
 # ego_result_CC <- ego_result_CC[order(ego_result_CC$Count),]
 nrow(ego_result_CC)
 ego_BP <- enrichGO(OrgDb=%s,
@@ -454,7 +460,9 @@ ego_BP <- enrichGO(OrgDb=%s,
                    pvalueCutoff = 0.05,
                    ont = "BP")
                    #readable=TRUE)
-ego_result_BP <- na.omit(as.data.frame(ego_BP)[1:display_number[3], ])
+ego_BP=as.data.frame(ego_BP)
+ego_BP=ego_BP[order(ego_BP$Count,decreasing = T),]
+ego_result_BP <- na.omit(ego_BP[1:display_number[3], ])
 # ego_result_BP <- ego_result_BP[order(ego_result_BP$Count),]
 nrow(ego_result_BP)
 go_enrich_df <- data.frame(ID=c(ego_result_BP$ID, ego_result_CC$ID, ego_result_MF$ID),
@@ -599,8 +607,8 @@ ekp <- enricher(glist,
                 qvalueCutoff = 1,
                 pAdjustMethod = "BH",
                 minGSSize = 5)
-
 ekp_results <- as.data.frame(ekp)
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.csv",sep = "_"),row.names = T)
 
@@ -630,6 +638,7 @@ ekp <- enricher(glist,
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.p.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.p.csv",sep = "_"),row.names = T)
 
@@ -659,6 +668,7 @@ ekp <- enricher(glist,
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.q.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.q.csv",sep = "_"),row.names = T)
 

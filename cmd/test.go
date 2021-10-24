@@ -1,15 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/qiaoba0728/gene-analyse/internal/types"
-	"github.com/qiaoba0728/gene-analyse/internal/utils"
+	"github.com/qiaoba0728/gene-analyse/internal/conf"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"strings"
 )
 
 var testCmd = &cobra.Command{
@@ -18,33 +11,35 @@ var testCmd = &cobra.Command{
 	Long:  "run gene-analyse plugin build test data",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		//conf.InitConfig(cfgFile)
+		conf.InitBuildConfig("I://code//go//src//gene-analyse//build.json")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		r, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
-		files, err := ioutil.ReadDir(types.SORTED_OUT)
-		if err != nil {
-			panic(err)
-		}
-		for _, v := range files {
-			name := v.Name()
-			if strings.HasSuffix(v.Name(), ".sorted.bam") {
-				temp := strings.TrimSuffix(name, ".sorted.bam")
-				cmdex := exec.Command("sed", "-i", "s/pdf/png/g",
-					fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
-				cmdex.Stdout = os.Stdout
-				cmdex.Stderr = os.Stderr
-				if err := cmdex.Run(); err != nil {
-					r.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmdex.String()))
-				} else {
-					cmdex = exec.Command("Rscript", fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
-					cmdex.Stdout = os.Stdout
-					cmdex.Stderr = os.Stderr
-					if err = cmdex.Run(); err != nil {
-						r.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmdex.String()))
-					}
-				}
-			}
-		}
+		conf.GetBuildConfig()
+		//r, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
+		//files, err := ioutil.ReadDir(types.SORTED_OUT)
+		//if err != nil {
+		//	panic(err)
+		//}
+		//for _, v := range files {
+		//	name := v.Name()
+		//	if strings.HasSuffix(v.Name(), ".sorted.bam") {
+		//		temp := strings.TrimSuffix(name, ".sorted.bam")
+		//		cmdex := exec.Command("sed", "-i", "s/pdf/png/g",
+		//			fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+		//		cmdex.Stdout = os.Stdout
+		//		cmdex.Stderr = os.Stderr
+		//		if err := cmdex.Run(); err != nil {
+		//			r.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmdex.String()))
+		//		} else {
+		//			cmdex = exec.Command("Rscript", fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+		//			cmdex.Stdout = os.Stdout
+		//			cmdex.Stderr = os.Stderr
+		//			if err = cmdex.Run(); err != nil {
+		//				r.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmdex.String()))
+		//			}
+		//		}
+		//	}
+		//}
 		//g, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
 		//plugin := build.NewReportPlugin(l)
 		//if err := plugin.Build(context.Background()); err != nil {

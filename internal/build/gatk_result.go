@@ -182,6 +182,7 @@ func (g *gatkResultPlugin) merge() error {
 		cmd := exec.Command("/bin/sh", "-c", vcfs)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 		if err = cmd.Run(); err != nil {
 			g.logger.Error("run gatk CombineGVCFs bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			return err
@@ -192,6 +193,7 @@ func (g *gatkResultPlugin) merge() error {
 			"-O", fmt.Sprintf("%s/%s.vcf", types.GATK_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 		if err = cmd.Run(); err != nil {
 			g.logger.Error("run gatk GenotypeGVCFs bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			return err
@@ -200,6 +202,7 @@ func (g *gatkResultPlugin) merge() error {
 		cmd = exec.Command("bgzip", "-f", fmt.Sprintf("%s/%s.vcf", types.GATK_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 		if err = cmd.Run(); err != nil {
 			g.logger.Error("run bgzip bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			return err
@@ -210,6 +213,7 @@ func (g *gatkResultPlugin) merge() error {
 		cmd = exec.Command("tabix", "-p", "vcf", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
 		if err = cmd.Run(); err != nil {
 			g.logger.Error("run tabix bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			return err

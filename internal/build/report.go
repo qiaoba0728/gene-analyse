@@ -322,7 +322,7 @@ func (r *reportPlugin) geneDepthCoverage(dir string) error {
 						r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 					}
 				}
-				cmd := exec.Command("bamdst", "-p",
+				cmd := exec.Command("/work/bamdst", "-p",
 					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
 					input)
@@ -361,7 +361,7 @@ func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
 				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
 		}
-		cmd := exec.Command("bamdst", "-p",
+		cmd := exec.Command("/work/bamdst", "-p",
 			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"),
 			bam1)
@@ -382,7 +382,7 @@ func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
 				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
 		}
-		cmd := exec.Command("bamdst", "-p",
+		cmd := exec.Command("/work/bamdst", "-p",
 			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"),
 			bam2)
@@ -546,7 +546,7 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 			if err = pool.Submit(func() {
 				temp := strings.TrimSuffix(name, ".sorted.bam")
 				cmd := exec.Command("RPKM_saturation.py", "-i", input,
-					"-f", "png",
+					//"-f", "png",
 					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
 				defer func() {
