@@ -427,15 +427,23 @@ display_number = c(10, 10, 10)
 ## GO enrichment with clusterProfiler
 if(! require(clusterProfiler))
         install.packages("clusterProfiler")
+if(! require("GOplot"))
+        install.packages("GOplot")
 install.packages("%s", repos = NULL, type = "source")
 library(%s)
 library(clusterProfiler)
+library(GOplot)
 glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
 ego_MF <- enrichGO(OrgDb=%s,
              gene = glist,
  	           keyType="GID",
-             pvalueCutoff = 0.05,
+             pvalueCutoff = %.2f,
              ont = "MF")
+#png(paste(args[2],"go_enrich_q_mf_0.05.png",sep = "_"))
+#goplot(ego_MF)
+#pdf(paste(args[2],"go_enrich_q_mf_0.05.pdf",sep = "_"))
+#goplot(ego_MF)
+
 ego_MF=as.data.frame(ego_MF)
 ego_MF=ego_MF[order(ego_MF$Count,decreasing = T),]
 ego_MF
@@ -444,10 +452,14 @@ ego_result_MF <-  na.omit(ego_MF[1:display_number[1], ])
 nrow(ego_result_MF)
 ego_CC <- enrichGO(OrgDb=%s,
                    gene = glist,
-                   pvalueCutoff = 0.05,
+                   pvalueCutoff = %.2f,
 		               keyType="GID",
                    ont = "CC")
                   # readable=TRUE)
+#png(paste(args[2],"go_enrich_q_cc_0.05.png",sep = "_"))
+#goplot(ego_CC)
+#pdf(paste(args[2],"go_enrich_q_cc_0.05.pdf",sep = "_"))
+#goplot(ego_CC)
 
 ego_CC=as.data.frame(ego_CC)
 ego_CC=ego_CC[order(ego_CC$Count,decreasing = T),]
@@ -457,9 +469,14 @@ nrow(ego_result_CC)
 ego_BP <- enrichGO(OrgDb=%s,
                    gene = glist,
 		               keyType="GID",
-                   pvalueCutoff = 0.05,
+                   pvalueCutoff = %.2f,
                    ont = "BP")
                    #readable=TRUE)
+#png(paste(args[2],"go_enrich_q_bp_0.05.png",sep = "_"))
+#goplot(ego_BP)
+#pdf(paste(args[2],"go_enrich_q_bp_0.05.pdf",sep = "_"))
+#goplot(ego_BP)
+
 ego_BP=as.data.frame(ego_BP)
 ego_BP=ego_BP[order(ego_BP$Count,decreasing = T),]
 ego_result_BP <- na.omit(ego_BP[1:display_number[3], ])

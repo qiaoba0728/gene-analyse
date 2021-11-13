@@ -178,7 +178,7 @@ func (g *gatkResultPlugin) merge() error {
 	if vcfs != "" {
 		temp := "merge"
 		start := time.Now()
-		vcfs = "gatk CombineGVCFs -R gene.fa " + vcfs + " -O " + fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp)
+		vcfs = "gatk --java-options '-Xmx30G' CombineGVCFs -R gene.fa " + vcfs + " -O " + fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp)
 		cmd := exec.Command("/bin/sh", "-c", vcfs)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
