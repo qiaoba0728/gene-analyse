@@ -39,8 +39,8 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	wg.Add(4)
 	if utils.IsExist(types.SORTED_OUT) {
+		wg.Add(5)
 		go func() {
 			defer wg.Done()
 			if err = r.readDistribution(types.SORTED_OUT); err != nil {
@@ -53,12 +53,6 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneBodyCoverage", zap.Error(err))
 			}
 		}()
-		//go func() {
-		//	defer wg.Done()
-		//	if err = r.readQuality();err != nil {
-		//		r.logger.Error("readQuality",zap.Error(err))
-		//	}
-		//}()geneDepthCoverage
 		go func() {
 			defer wg.Done()
 			if err = r.rpkmSaturation(types.SORTED_OUT); err != nil {
@@ -71,7 +65,14 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneDepthCoverage", zap.Error(err))
 			}
 		}()
+		go func() {
+			defer wg.Done()
+			if err = r.stringTieHandle(types.SORTED_OUT); err != nil {
+				r.logger.Error("stringTieHandle", zap.Error(err))
+			}
+		}()
 	} else {
+		wg.Add(4)
 		go func() {
 			defer wg.Done()
 			if err = r.readDistributionEx(); err != nil {
@@ -84,12 +85,6 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneBodyCoverage", zap.Error(err))
 			}
 		}()
-		//go func() {
-		//	defer wg.Done()
-		//	if err = r.readQuality();err != nil {
-		//		r.logger.Error("readQuality",zap.Error(err))
-		//	}
-		//}()
 		go func() {
 			defer wg.Done()
 			if err = r.rpkmSaturationEx(); err != nil {
@@ -625,6 +620,88 @@ func (r *reportPlugin) rpkmSaturationEx() error {
 		}
 	})
 	wg.Wait()
+	return nil
+}
+
+func (r *reportPlugin) stringTieHandle(dir string) error {
+	var (
+		err   error
+		pool  *ants.Pool
+		files []os.FileInfo
+		wg    sync.WaitGroup
+		gtf   string
+	)
+	pool, err = ants.NewPool(2)
+	if err != nil {
+		return err
+	}
+	files, err = ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".sorted.bam") {
+			wg.Add(1)
+			name := v.Name()
+			//r := path.Join(wd,"script","featurecounts.R")
+			input := path.Join(dir, name)
+			if err = pool.Submit(func() {
+				temp := strings.TrimSuffix(name, ".sorted.bam")
+				cmd := exec.Command("stringtie", input,
+					//"-f", "png",
+					"-l", temp,
+					"-o", fmt.Sprintf("%s/%s.transcripts.gtf", types.REPORT_OUT, temp))
+				defer func() {
+					//bar.Add(1)
+					wg.Done()
+					r.logger.Info("build transcripts file success", zap.String("name", name))
+				}()
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("build transcripts bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}); err != nil {
+				r.logger.Error("pool transcripts run fail", zap.Error(err))
+			}
+		}
+	}
+	wg.Wait()
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("find %s -name *.transcripts.gtf > %s/merglist.txt", types.REPORT_OUT, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("build transcripts bam", zap.Error(err), zap.String("cmd", cmd.String()))
+	}
+	if gtf, err = r.getGTF(); err != nil {
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("stringtie --merge -p 8 -G %s -o %s/stringtie_merged.gtf %s/merglist.txt", gtf, types.REPORT_OUT, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("build merge bam", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("gffcompare -r %s -G %s/stringtie_merged.gtf", gtf, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("gffcompare gtf", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cp -r /work/gffcmp.* %s", types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("cp gtf", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
 	return nil
 }
 func (r *reportPlugin) Name() string {

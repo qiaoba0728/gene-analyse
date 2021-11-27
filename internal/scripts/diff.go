@@ -136,8 +136,9 @@ s <- na.omit(s)
 s <- transform(s, padj = -1*log10(s$padj))
 down <- s[s$log2FoldChange <= -1,]
 up <- s[s$log2FoldChange >=1,]
-
-data = data.frame(type=c("down","up","total"),value = c(dim(down)[1],dim(up)[1]),dim(down)[1] + dim(up)[1])
+dim(down)[1]
+dim(up)[1]
+data = data.frame(type=c("down","up"),value = c(dim(down)[1],dim(up)[1]))
 write.table (data,file =paste0(output,"/",name,"_down_up.csv"), row.names = FALSE, col.names =FALSE)
 
 pdf(paste0(output,"/",name,"_down_up.pdf"))

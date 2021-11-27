@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 )
 
 type genePlugin struct {
@@ -48,12 +49,6 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	//err = utils.WriteFile("nomode_go.R", fmt.Sprintf(scripts.NOMODE_GO, geneDB,
-	//	geneDB, geneDB))
-	//if err != nil {
-	//	g.logger.Error("cmd run fail", zap.Error(err))
-	//	return err
-	//}
 	err = utils.WriteFile("nomode_go_ex.R", fmt.Sprintf(scripts.NOMODE_GO_EX, geneDB,
 		geneDB, geneDB, g.config.Factor, geneDB, g.config.Factor, geneDB, g.config.Factor))
 	if err != nil {
@@ -83,58 +78,74 @@ func (g *genePlugin) getGTF() (string, error) {
 	return "", errors.New("gtf not find")
 }
 func (g *genePlugin) Build(ctx context.Context) error {
-	wd, _ := os.Getwd()
-	inputs := make([]string, 0)
-	for _, v := range g.config.Group {
-		if err := g.check(v); err != nil {
-			return err
-		}
-		if v.StartRepeated != "1" && v.EndRepeated != "1" {
-			cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_matrix.R"), path.Join(types.EXPRESSION_OUT, "gene_count.csv"),
-				v.Start, v.End,
-				v.StartRepeated,
-				v.EndRepeated,
-				v.Output,
-				v.Name)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				log.Println("diff error", err.Error())
-				return err
+	var (
+		wd     string
+		inputs []string
+	)
+	wd, _ = os.Getwd()
+	var wg sync.WaitGroup
+	for _, group := range g.config.Group {
+		v := group
+		wg.Add(1)
+		go func() {
+			defer func() {
+				wg.Done()
+				if err := recover(); err != nil {
+					log.Println("recover error", err)
+				}
+			}()
+			if err := g.check(v); err != nil {
+				log.Println("check error", err.Error())
+				return
 			}
-			inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
-			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
-				path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
-				fmt.Sprintf("%s/%s", v.Output, v.Name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				log.Println("diff error", err.Error())
-				return err
+			if v.StartRepeated != "1" && v.EndRepeated != "1" {
+				cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_matrix.R"), path.Join(types.EXPRESSION_OUT, "gene_count.csv"),
+					v.Start, v.End,
+					v.StartRepeated,
+					v.EndRepeated,
+					v.Output,
+					v.Name)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					log.Println("diff error", err.Error())
+					return
+				}
+				inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					log.Println("diff error", err.Error())
+					return
+				}
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+					return
+				}
+			} else {
+				//gfold diff -s1 sample1 -s2 sample2 -suf .read_cnt -o result.diff
+				cmd := exec.Command("gfold", "diff",
+					"-s1", fmt.Sprintf("%s/%s", types.SINGLE_OUT, v.Start),
+					"-s2", fmt.Sprintf("%s/%s", types.SINGLE_OUT, v.End),
+					"-o", fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+				}
 			}
-			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
-				path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
-				fmt.Sprintf("%s/%s", v.Output, v.Name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
-				return err
-			}
-		} else {
-			//gfold diff -s1 sample1 -s2 sample2 -suf .read_cnt -o result.diff
-			cmd := exec.Command("gfold", "diff",
-				"-s1", fmt.Sprintf("%s/%s", types.SINGLE_OUT, v.Start),
-				"-s2", fmt.Sprintf("%s/%s", types.SINGLE_OUT, v.End),
-				"-o", fmt.Sprintf("%s/%s", v.Output, v.Name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
-			}
-		}
-		g.logger.Info("diff finished......")
+		}()
 	}
+	wg.Wait()
+	g.logger.Info("diff finished......")
 	if g.config.DiffGroup != nil && len(inputs) > 0 {
 		cmd := exec.Command("Rscript", path.Join(wd, "script", "insertsect_go.R"), strings.Join(inputs, ","), fmt.Sprintf("%s/all", g.config.DiffGroup.Output))
 		cmd.Stdout = os.Stdout

@@ -353,70 +353,121 @@ write.table(data,file=paste(args[2],"merge.txt",sep = "_"))
 write.csv(data,file=paste(args[2],"merge.csv",sep = "_"),row.names = F)
 `
 	NOMODE_GO = `
-if(! require(clusterProfiler))
-        install.packages("clusterProfiler")
-install.packages("%s", repos = NULL, type = "source")
-library(%s)
-library(clusterProfiler)
 args=commandArgs(T)
 print(args[1])
 print(args[2])
-
+display_number = c(10, 10, 10)
+## GO enrichment with clusterProfiler
+if(! require(clusterProfiler))
+        install.packages("clusterProfiler")
+if(! require("GOplot"))
+        install.packages("GOplot")
+install.packages("%s", repos = NULL, type = "source")
+library(%s)
+library(clusterProfiler)
+library(GOplot)
 glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
+ego_MF <- enrichGO(OrgDb=%s,
+             gene = glist,
+ 	           keyType="GID",
+             #pvalueCutoff = %.2f,
+			 pvalueCutoff = 1,
+			 qvalueCutoff = 1,
+             ont = "MF")
+#png(paste(args[2],"go_enrich_q_mf_0.05_all.png",sep = "_"))
+#goplot(ego_MF)
+#pdf(paste(args[2],"go_enrich_q_mf_0.05_all.pdf",sep = "_"))
+#goplot(ego_MF)
 
-ego_all_0.05 <- enrichGO(gene = glist,
-                        keyType="GID",
-                        #模式物种
-                        #OrgDb = org.Mm.eg.db,
-                        #非模式物种
-                        OrgDb = %s,
-                        ont = "ALL", #ALL或BP或MF或CC
-                        pAdjustMethod = "BH",
-                        pvalueCutoff  = 0.05,
-                        qvalueCutoff  = 0.05)
-#data = as.data.frame(ego_all_0.05)
-pdf(paste(args[2],"go_enrich.dotplot.pdf",sep = "_"))
-dotplot(ego_all_0.05,showCategory=30, font.size = 8)
-dev.off()
+ego_MF=as.data.frame(ego_MF)
+ego_MF=ego_MF[order(ego_MF$Count,decreasing = T),]
+ego_MF
+ego_result_MF <-  na.omit(ego_MF[1:display_number[1], ])
+# ego_result_MF <- ego_result_MF[order(ego_result_MF$Count),]
+nrow(ego_result_MF)
+ego_CC <- enrichGO(OrgDb=%s,
+                   gene = glist,
+                   #pvalueCutoff = %.2f,
+                   pvalueCutoff = 1,
+			       qvalueCutoff = 1,
+		               keyType="GID",
+                   ont = "CC")
+                  # readable=TRUE)
+#png(paste(args[2],"go_enrich_q_cc_0.05_all.png",sep = "_"))
+#goplot(ego_CC)
+#pdf(paste(args[2],"go_enrich_q_cc_0.05_all.pdf",sep = "_"))
+#goplot(ego_CC)
 
-png(paste(args[2],"go_enrich.dotplot.png",sep = "_"))
-dotplot(ego_all_0.05,showCategory=30, font.size = 8)
-dev.off()
+ego_CC=as.data.frame(ego_CC)
+ego_CC=ego_CC[order(ego_CC$Count,decreasing = T),]
+ego_result_CC <-  na.omit(ego_CC[1:display_number[2], ])
+# ego_result_CC <- ego_result_CC[order(ego_result_CC$Count),]
+nrow(ego_result_CC)
+ego_BP <- enrichGO(OrgDb=%s,
+                   gene = glist,
+		               keyType="GID",
+                   #pvalueCutoff = %.2f,
+                   pvalueCutoff = 1,
+			       qvalueCutoff = 1,
+                   ont = "BP")
+                   #readable=TRUE)
+#png(paste(args[2],"go_enrich_q_bp_0.05_all.png",sep = "_"))
+#goplot(ego_BP)
+#pdf(paste(args[2],"go_enrich_q_bp_0.05_all.pdf",sep = "_"))
+#goplot(ego_BP)
 
+ego_BP=as.data.frame(ego_BP)
+ego_BP=ego_BP[order(ego_BP$Count,decreasing = T),]
+ego_result_BP <- na.omit(ego_BP[1:display_number[3], ])
+# ego_result_BP <- ego_result_BP[order(ego_result_BP$Count),]
+nrow(ego_result_BP)
+go_enrich_df <- data.frame(ID=c(ego_result_BP$ID, ego_result_CC$ID, ego_result_MF$ID),
+                                   Description=c(ego_result_BP$Description, ego_result_CC$Description, ego_result_MF$Description),
+                                   GeneNumber=c(ego_result_BP$Count, ego_result_CC$Count, ego_result_MF$Count),
+                                   type=factor(c(rep("biological process", nrow(ego_result_BP)), rep("cellular component", nrow(ego_result_CC)),
+                                          rep("molecular function", nrow(ego_result_MF))), levels=c("biological process", "cellular component","molecular function")))
 
-write.csv(as.data.frame(ego_all_0.05),paste(args[2],"go_enrich_q_0.05.csv",sep = "_"),row.names = F)
-
-
-data = read.csv(paste(args[2],"go_enrich_q_0.05.csv",sep = "_"),sep = ",")
-bp = data[data$ONTOLOGY=='BP',]
-bp = bp[order(bp$Count,decreasing = T),]
-if (nrow(bp) > 10) {
-  bp = bp[1:10,]
+## numbers as data on x axis
+go_enrich_df$number <- factor(rev(1:nrow(go_enrich_df)))
+## shorten the names of GO terms
+shorten_names <- function(x, n_word=4, n_char=40){
+  if (length(strsplit(x, " ")[[1]]) > n_word || (nchar(x) > 40))
+  {
+    if (nchar(x) > 40) x <- substr(x, 1, 40)
+    x <- paste(paste(strsplit(x, " ")[[1]][1:min(length(strsplit(x," ")[[1]]), n_word)],
+                       collapse=" "), "...", sep="")
+    return(x)
+  } 
+  else
+  {
+    return(x)
+  }
 }
-cc = data[data$ONTOLOGY=='CC',]
-cc = cc[order(bp$Count,decreasing = T),]
-if (nrow(cc) > 10) {
-  cc = cc[1:10,]
-}
-mf = data[data$ONTOLOGY=='MF',]
-mf = mf[order(mf$Count,decreasing = T),]
-if (nrow(mf) > 10) {
-  mf = mf[1:10,]
-}
-input = rbind(mf,cc,bp)
+nrow(go_enrich_df)
+labels=(sapply(
+  levels(factor(go_enrich_df$Description)),
+  shorten_names))
 
+names(labels)=factor(rev(1:nrow(go_enrich_df)))
+#names(labels) = rev(1:nrow(go_enrich_df))
+# nrow(go_enrich_df)
+# rev(1:nrow(go_enrich_df))
+
+## colors for bar // green, blue, orange
+CPCOLS <- c("#8DA1CB", "#FD8D62", "#66C3A5")
 library(ggplot2)
-
-#ggplot(data=data, aes(x=Description,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8)
-#dev.off()
-#将GO_term设定为factor即可按照顺序输出
-GO_term_order=factor(as.integer(rownames(input)),labels=input$Description)
-pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"))
-ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
+p <- ggplot(data=go_enrich_df, aes(x=number, y=GeneNumber, fill=type)) +
+  geom_bar(stat="identity", width=0.8) + coord_flip() + 
+  scale_fill_manual(values = CPCOLS) + theme_bw() + 
+  scale_x_discrete(labels=labels) +
+  xlab("GO term") + 
+  theme(axis.text=element_text(face = "bold", color="gray50")) +
+  labs(title = "The Most Enriched GO Terms")
+pdf(paste(args[2],"go_enrich_q_0.05_all.pdf",sep = "_"))
+p
 dev.off()
-
-png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"))
-ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
+png(paste(args[2],"go_enrich_q_0.05_all.png",sep = "_"))
+p
 dev.off()
 `
 	NOMODE_GO_EX = `
@@ -625,6 +676,9 @@ ekp <- enricher(glist,
                 pAdjustMethod = "BH",
                 minGSSize = 5)
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
 nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.csv",sep = "_"),row.names = T)
@@ -655,6 +709,9 @@ ekp <- enricher(glist,
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
 nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.p.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.p.csv",sep = "_"),row.names = T)
@@ -685,6 +742,9 @@ ekp <- enricher(glist,
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
 nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.q.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.q.csv",sep = "_"),row.names = T)
@@ -706,4 +766,18 @@ dev.off()
 png(paste(args[2],"KEGG_enrichment.dotplot_q.png",sep = "_"))
 dotplot(ekp,showCategory=10, font.size = 8)
 dev.off()`
+	BUILD_STAT = `
+library(ggplot2)
+data =  read.csv("/data/output/report_result/stat.csv",header = T)
+data
+png("/data/output/report_result/build_stat.png")
+bp<- ggplot(data, aes(x="", y=Percentage, fill=Group))+
+geom_bar(width = 1, stat = "identity") + coord_polar(theta = "y")+ theme(panel.grid = element_blank(),axis.text = element_blank(), axis.title = element_blank(),axis.ticks = element_blank()) +guides(fill = guide_legend(title = "Class_code"))
+newlegend <- paste(data$Group, " (", round(data$Percentage/sum(data$Percentage)* 100, 2), "%)", sep = "")
+bp = bp + scale_fill_discrete(breaks = data$Group, labels = newlegend)
+bp
+dev.off()
+pdf("/data/output/report_result/build_stat.pdf")
+dev.off()
+`
 )
