@@ -315,21 +315,29 @@ for (i in 1:ncol(data)) {
     barplot(Freq~x, data=a,main="gene count",xlab="gene expression level",ylab="count")
     dev.off()
 }`
-	HEATMAP_REPORT = `rm(list = ls())
+	HEATMAP_REPORT = `install.packages("pheatmap")
+install.packages("vegan")
 library(pheatmap)
-data = read.table("/data/output/expression_result/gene_count.csv",sep = "\t",header = T,row.names = 1)
-data = as.data.frame(lapply(data,as.numeric))
-data[is.na(data)] = 0
-head(data)
-cor_data = cor(data, method = "pearson")
-png("/data/output/report_result/heatmap_count.png",width=800,height=800)
-#write.table(cor_matr, file="cor_matr.xls",row.names=F, col.names=T,quote=FALSE,sep="\t")
-pheatmap(cor_data,display_numbers = T,clustering_method = "average")
+#library(gplots)
+library(vegan)
+library(permute)
+library(lattice)
+data<-read.table("/data/output/expression_result/gene_count.csv",header = T,sep ="\t",row.names = 1)
+data<-as.matrix(data)
+data <- hclust(data, method=)
+data = na.omit(data)
+#drows<-vegdist(data,method ="bray")
+#dcols<-vegdist(t(data),method ="bray")
+#drows = drows[!is.na(drows)]
+#dcols = dcols[!is.na(dcols)]
+data <- data[apply(data, 1, function(x) sd(x)!=0),]
+png("/data/output/report_result/heatmap_count.png")
+pheatmap(data,scale = "row")
+#pheatmap(data,cellwidth = NA, cellheight = NA, treeheight_row = 50, treeheight_col = 50 ,color = colorRampPalette(c("green", "black","red"))(100), scale ="row", legend = TRUE,border_color = NA, fontsize_row = 8, fontsize_col = 10,clustering_distance_rows = drows, clustering_distance_cols = dcols, clustering_method ="average",main ="Heatmap")
 dev.off()
-
 pdf("/data/output/report_result/heatmap_count.pdf")
-#write.table(cor_matr, file="cor_matr.xls",row.names=F, col.names=T,quote=FALSE,sep="\t")
-pheatmap(cor_data,display_numbers = T,clustering_method = "average")
+pheatmap(data,scale = "row")
+#pheatmap(data,cellwidth = NA, cellheight = NA, treeheight_row = 50, treeheight_col = 50 ,color = colorRampPalette(c("green", "black","red"))(100), scale ="row", legend = TRUE,border_color = NA, fontsize_row = 8, fontsize_col = 10,clustering_distance_rows = drows, clustering_distance_cols = dcols, clustering_method ="average",main ="Heatmap")
 dev.off()`
 
 	INSERTSECT = `

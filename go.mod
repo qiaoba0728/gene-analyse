@@ -3,6 +3,7 @@ module github.com/qiaoba0728/gene-analyse
 go 1.14
 
 require (
+	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/go-xorm/xorm v0.7.9
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
