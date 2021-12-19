@@ -255,30 +255,30 @@ func (u *upStreamPlugin) Build(ctx context.Context) error {
 			u.logger.Error("hisat2 sorted input not existed")
 		}
 		//bam -> count
-		if b := utils.IsExist(types.SORTED_OUT); b {
-			if b := utils.IsExist(types.EXPRESSION_OUT); !b || (b && utils.Files(types.EXPRESSION_OUT) == 0) {
-				if err := u.feature(types.SORTED_OUT); err != nil {
-					u.logger.Error("feature count err", zap.Error(err))
-					return err
-				} else {
-					u.logger.Info("build feature count success")
-				}
-			} else {
-				u.logger.Info("feature count file existed")
-				files, err := ioutil.ReadDir(types.EXPRESSION_OUT)
-				if err != nil {
-					u.logger.Error("read feature count err", zap.Error(err))
-				} else {
-					names := make([]string, 0)
-					for _, v := range files {
-						names = append(names, v.Name())
-					}
-					log.Println(types.EXPRESSION_OUT, names)
-				}
-			}
-		} else {
-			panic("sorted file error")
-		}
+		//if b := utils.IsExist(types.SORTED_OUT); b {
+		//	if b := utils.IsExist(types.EXPRESSION_OUT); !b || (b && utils.Files(types.EXPRESSION_OUT) == 0) {
+		//		if err := u.feature(types.SORTED_OUT); err != nil {
+		//			u.logger.Error("feature count err", zap.Error(err))
+		//			return err
+		//		} else {
+		//			u.logger.Info("build feature count success")
+		//		}
+		//	} else {
+		//		u.logger.Info("feature count file existed")
+		//		files, err := ioutil.ReadDir(types.EXPRESSION_OUT)
+		//		if err != nil {
+		//			u.logger.Error("read feature count err", zap.Error(err))
+		//		} else {
+		//			names := make([]string, 0)
+		//			for _, v := range files {
+		//				names = append(names, v.Name())
+		//			}
+		//			log.Println(types.EXPRESSION_OUT, names)
+		//		}
+		//	}
+		//} else {
+		//	panic("sorted file error")
+		//}
 		return nil
 	})
 	select {
@@ -607,16 +607,17 @@ func (u *upStreamPlugin) feature(dir string) error {
 		}
 	}
 	wg.Wait()
+	//featureCounts -p -Q 10 -s 0 -T 4 -a /data/input/references/csi.gene.models.gtf -o /data/output/expression_result/feature.all.counts.txt /data/output/sorted_result/*.sorted.bam
 	//featureCounts -p -Q 10 -s 0 -T 4 -a gtf -o test.counts.txt {file}
-	cmd := exec.Command("featureCounts", "-p", "-Q",
-		"10", "-s", "0", "-T", "4", "-a", gtf, "-o",
-		fmt.Sprintf("%s/%s.all.counts.txt", types.EXPRESSION_OUT, "feature"),
-		fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, "*"))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-	if err = cmd.Run(); err != nil {
-		return err
-	}
+	//cmd := exec.Command("featureCounts", "-p", "-Q",
+	//	"10", "-s", "0", "-T", "4", "-a", gtf, "-o",
+	//	fmt.Sprintf("%s/%s.all.counts.txt", types.EXPRESSION_OUT, "feature"),
+	//	fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, "*"))
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	//u.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	//if err = cmd.Run(); err != nil {
+	//	return err
+	//}
 	return nil
 }

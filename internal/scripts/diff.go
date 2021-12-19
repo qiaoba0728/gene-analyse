@@ -153,4 +153,41 @@ ggplot(data=data,mapping=aes(x=type,y=value,fill=type))+
   xlab(name)+ylab("Number of Genes")
 dev.off()
 `
+	DIFF_VEEN = `args=commandArgs(T)
+print(args[1])
+library (VennDiagram)
+files = strsplit(args[1], ",")[[1]]
+print(files)
+print(length(files))
+
+if (length(files) != 3)
+{
+        return(message("must input 3 param!"))
+}
+#for (f in files)
+#{
+#        #data <- fun.read(f)
+#       #data
+#       path <- paste("/data/output/diff","/",f,".txt",sep="")
+#        print(path)
+#        res <- read.table(path, header = TRUE, stringsAsFactors = FALSE)$Gene
+#       head(res)
+#        datas <- list(datas,res)
+#}
+path <- paste("/data/output/diff/diffexpr","-",files[1],"-0.05.txt",sep="")
+A = read.table(path, header = TRUE, stringsAsFactors = FALSE)$Gene
+path <- paste("/data/output/diff/diffexpr","-",files[2],"-0.05.txt",sep="")
+B = read.table(path, header = TRUE, stringsAsFactors = FALSE)$Gene
+path <- paste("/data/output/diff/diffexpr","-",files[3],"-0.05.txt",sep="")
+C = read.table(path, header = TRUE, stringsAsFactors = FALSE)$Gene
+
+result = list(A = A,B = B,C = C)
+names(result)[1] = files[1]
+names(result)[2] = files[2]
+names(result)[3] = files[3]
+#head(datas[1])
+
+#result[0]
+#veen.diagram(x= result,"/data/output/report_result/veen.png",col="white",fill=c('res','green','blue'))
+venn.diagram(x=result, "/data/output/report_result/veen.png", height = 450, width = 450,  resolution =300, imagetype="png", col="white", fill=c(colors()[616], colors()[38], colors()[468]), alpha=c(0.6, 0.6, 0.6), lwd=c(1, 1, 1), cex=0.3, cat.dist=c(-0.07, -0.07, -0.05), cat.pos=c(320, 30, 180), cat.cex=0.45, fontface = "bold",fontfamily = "sans",cat.default.pos = "outer")`
 )

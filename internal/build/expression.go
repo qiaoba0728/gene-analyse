@@ -281,9 +281,10 @@ func (e *expressionPlugin) matrix() error {
 	wd, _ := os.Getwd()
 	input := path.Join(types.EXPRESSION_OUT, "gene.count")
 	output := path.Join(types.EXPRESSION_OUT, "gene_count.csv")
+	outputNumber := path.Join(types.EXPRESSION_OUT, "gene_count_number.csv")
 	outputXls := path.Join(types.EXPRESSION_OUT, "gene_count.xls")
 	cmd := exec.Command("Rscript", path.Join(wd, "script", "matrix_count.R"),
-		input, output, outputXls)
+		input, output, outputNumber, outputXls)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

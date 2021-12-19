@@ -142,6 +142,14 @@ func (r *reportPlugin) readDistribution(dir string) error {
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
 					r.logger.Error("read_distribution bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cat %s/%s_read_distribution.log | tail -n +5 | head -n 11 > %s/%s_read_distribution_plot.log", types.REPORT_OUT, temp, types.REPORT_OUT, temp))
+				r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
 				}
 			}); err != nil {
 				r.logger.Error("pool run fail", zap.Error(err))
@@ -179,6 +187,14 @@ func (r *reportPlugin) readDistributionEx() error {
 		cmd.Stderr = os.Stderr
 		if err = cmd.Run(); err != nil {
 			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+			return
+		}
+		cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cat %s/%s_read_distribution.log | tail -n +5 | head -n 11 > %s/%s_read_distribution_plot.log", types.REPORT_OUT, "bam1", types.REPORT_OUT, "bam1"))
+		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
 		}
 	})
 	if err != nil {
@@ -198,6 +214,14 @@ func (r *reportPlugin) readDistributionEx() error {
 			"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
 		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
 		cmd.Stdout = f
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+			return
+		}
+		cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cat %s/%s_read_distribution.log | tail -n +5 | head -n 11 > %s/%s_read_distribution_plot.log", types.REPORT_OUT, "bam2", types.REPORT_OUT, "bam2"))
+		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err = cmd.Run(); err != nil {
 			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
@@ -464,7 +488,7 @@ func (r *reportPlugin) readQuality(dir string) error {
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
-					r.logger.Error("geneBody_coverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
 				}
 			}); err != nil {
 				r.logger.Error("pool run fail", zap.Error(err))

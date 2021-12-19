@@ -32,16 +32,33 @@ if(! require(xlsx))
 args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
-outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+outFileNumber<-args[3]
+outFileXls<-args[4]
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','counts')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
+
+
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
+
+names(counts)
+names = counts$gene
+head(names)
+data = as.data.frame(lapply(counts[,-1],as.numeric))
+data = cbind(gene = counts[,1],data)
+rownames(data) = names
+#data$gene = counts$gene
+head(data)
+data = na.omit(data)
+summary(data)
+write.table(data,file=outFileNumber,sep="\t",quote=FALSE,row.names=FALSE)
+
+#write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
 `
 	MATRIX_TPM = `
@@ -51,13 +68,13 @@ args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
 outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','tpm')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
@@ -69,13 +86,13 @@ args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
 outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','fpkm')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
@@ -203,6 +220,17 @@ ggplot(result, aes(x=index, y=value, colour=type,group=type)) +
     ylab("quality") + theme(panel.background = element_rect(fill = 'grey', colour = 'grey'))
 dev.off()
 `
+	READ_REPORT = `args=commandArgs(T)
+print(args[1])
+print(args[2])
+data = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)
+library(ggplot2)
+data = data[c("Group","Tag_count")]
+png(args[2],width=800,height=600)
+ggplot(data=data,mapping=aes(x=Group,y=Tag_count,fill=Group,group=factor(1)))+
+  geom_bar(stat="identity")
+dev.off()
+`
 	FPKM_REPORT = `
 if(! require(xlsx))
         install.packages("xlsx")
@@ -296,48 +324,45 @@ pdf("/data/output/report_result/pca_count.pdf")
 ggscatter(pca.data,x = "PC1",y = "PC2",color = "Type",size = 5) + theme_bw()
 dev.off()`
 	FREQ_REPORT = `rm(list = ls())
-data = read.table("/data/output/expression_result/gene_count.csv",sep = "\t",header = T,row.names = 1)
+library(ggplot2)
+data <- read.table("/data/output/expression_result/gene_count_number.csv",sep = "\t",header = T,row.names = 1,stringsAsFactors = F)
+#data <- data.frame(lapply(data,as.numeric))
+ncol(data)
+
 for (i in 1:ncol(data)) {
-    temp = data.frame(value = data[,i],sample = colnames(data)[i])
-    temp$value.type[temp$value < 5] = "0-5"
-    temp$value.type[temp$value >= 5 & temp$value < 100] = "5-100"
-    temp$value.type[temp$value >= 100 & temp$value < 500] = "100-500"
-    temp$value.type[temp$value >= 500 & temp$value < 1000] = "500-1000"
-    temp$value.type[temp$value >= 1000] = ">=1000"
-    a = data.frame(table(temp$value.type))
-    x = factor(a$Var1,levels = c("0-5","5-100","100-500","500-1000",">=1000"))
-    filename = paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.png")
+    print(i)
+    a <- table(cut(data[,i],breaks=c(0,10,100,1000,10000,1000000)))
+    d <- as.data.frame(a)
+    group <- c("0-10","10-100","100-1000","1000-10000",">=10000")
+    d$group  <- group
+    print(d)
+    p <- ggplot(data=d,mapping=aes(x=group,y=Freq,fill=group,group=factor(1)))+geom_bar(stat="identity")
+    filename <- paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.png")
+    print(filename)
     png(filename,width=800,height=800)
-    barplot(Freq~x, data=a,main="gene count",xlab="gene expression level",ylab="count")
+    print(p)
     dev.off()
-    filename = paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.pdf")
+
+    filename <- paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.pdf")
+    print(filename)
     pdf(filename)
-    barplot(Freq~x, data=a,main="gene count",xlab="gene expression level",ylab="count")
+    print(p)
     dev.off()
+    print("finished")
 }`
 	HEATMAP_REPORT = `install.packages("pheatmap")
-install.packages("vegan")
 library(pheatmap)
-#library(gplots)
-library(vegan)
-library(permute)
-library(lattice)
-data<-read.table("/data/output/expression_result/gene_count.csv",header = T,sep ="\t",row.names = 1)
-data<-as.matrix(data)
-data <- hclust(data, method=)
-data = na.omit(data)
-#drows<-vegdist(data,method ="bray")
-#dcols<-vegdist(t(data),method ="bray")
-#drows = drows[!is.na(drows)]
-#dcols = dcols[!is.na(dcols)]
-data <- data[apply(data, 1, function(x) sd(x)!=0),]
-png("/data/output/report_result/heatmap_count.png")
-pheatmap(data,scale = "row")
-#pheatmap(data,cellwidth = NA, cellheight = NA, treeheight_row = 50, treeheight_col = 50 ,color = colorRampPalette(c("green", "black","red"))(100), scale ="row", legend = TRUE,border_color = NA, fontsize_row = 8, fontsize_col = 10,clustering_distance_rows = drows, clustering_distance_cols = dcols, clustering_method ="average",main ="Heatmap")
+data = read.table("/data/output/expression_result/gene_count.csv",header = T,sep ="\t",row.names = 1)
+data = as.data.frame(lapply(data,as.numeric))
+data[data==0] <- NA
+data[is.na(data)] <- min(data,na.rm = T)*0.01
+head(data)
+png("/data/output/report_result/cluster.png")
+pheatmap(log10(data))
 dev.off()
-pdf("/data/output/report_result/heatmap_count.pdf")
-pheatmap(data,scale = "row")
-#pheatmap(data,cellwidth = NA, cellheight = NA, treeheight_row = 50, treeheight_col = 50 ,color = colorRampPalette(c("green", "black","red"))(100), scale ="row", legend = TRUE,border_color = NA, fontsize_row = 8, fontsize_col = 10,clustering_distance_rows = drows, clustering_distance_cols = dcols, clustering_method ="average",main ="Heatmap")
+
+pdf("/data/output/report_result/cluster.pdf")
+pheatmap(log10(data))
 dev.off()`
 
 	INSERTSECT = `
@@ -786,6 +811,7 @@ bp = bp + scale_fill_discrete(breaks = data$Group, labels = newlegend)
 bp
 dev.off()
 pdf("/data/output/report_result/build_stat.pdf")
+bp
 dev.off()
 `
 )

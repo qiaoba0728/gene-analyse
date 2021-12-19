@@ -42,6 +42,11 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
+	err = utils.WriteFile("diff_veen.R", scripts.DIFF_VEEN)
+	if err != nil {
+		g.logger.Error("cmd run fail", zap.Error(err))
+		return err
+	}
 	geneDB := fmt.Sprintf("org.%s.eg.db", g.config.GeneDB)
 	err = utils.WriteFile("nomode_kegg.R", fmt.Sprintf(scripts.NOMODO_KEGG, geneDB,
 		geneDB, geneDB, geneDB))
@@ -146,32 +151,46 @@ func (g *genePlugin) Build(ctx context.Context) error {
 	}
 	wg.Wait()
 	g.logger.Info("diff finished......")
-	if g.config.DiffGroup != nil && len(inputs) > 0 {
-		cmd := exec.Command("Rscript", path.Join(wd, "script", "insertsect_go.R"), strings.Join(inputs, ","), fmt.Sprintf("%s/all", g.config.DiffGroup.Output))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
-			return err
-		}
-		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
-			fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
-			fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Println("diff error", err.Error())
-			return err
-		}
-		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
-			fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
-			fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
-			return err
-		}
+	cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_veen.R"), strings.Join(g.config.DiffGroup.Groups, ","))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+		return err
 	}
+	//if g.config.DiffGroup != nil && len(inputs) > 0 {
+	//	cmd := exec.Command("Rscript", path.Join(wd, "script", "insertsect_go.R"), strings.Join(inputs, ","), fmt.Sprintf("%s/all", g.config.DiffGroup.Output))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//	cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_veen.R"), strings.Join(g.config.DiffGroup.Groups, ","), strings.Join(g.config.DiffGroup.GroupNames, ","))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//	cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
+	//		fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
+	//		fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		log.Println("diff error", err.Error())
+	//		return err
+	//	}
+	//	cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
+	//		fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
+	//		fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//}
 	return nil
 }
