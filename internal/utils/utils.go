@@ -3,7 +3,9 @@ package utils
 import (
 	"archive/zip"
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"github.com/qiaoba0728/gene-analyse/internal/conf"
 	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"go.uber.org/zap"
 	"io"
@@ -341,4 +343,67 @@ func RandFloats(min, max float64, n int) []float64 {
 		res[i] = min + rand.Float64()*(max-min)
 	}
 	return res
+}
+func BuildConfig(path string, internal int, target string) error {
+	var (
+		config *conf.Config
+	)
+	config = &conf.Config{
+		GeneDB:    "Rsativus",
+		Factor:    0.5,
+		Group:     make([]*conf.Group, 0),
+		DiffGroup: &conf.DiffGroup{},
+	}
+	//先获取到文件信息
+	fileinfo, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("get file info error")
+	}
+	//判断是否是目录
+	if fileinfo.IsDir() {
+		return fmt.Errorf("paths is dir")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	rd := bufio.NewReader(f)
+	line, err := rd.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(line, "\t")
+	for i := 1; i < len(lines)-1; i = i + internal {
+		for j := i + internal; j < len(lines); j = j + internal {
+			temp := &conf.Group{
+				Start:         fmt.Sprintf("%d", i),
+				End:           fmt.Sprintf("%d", j),
+				Name:          fmt.Sprintf("%s_vs_%s", strings.Replace(lines[i], "_1", "", -1), strings.Replace(lines[j], "_1", "", -1)),
+				StartRepeated: fmt.Sprintf("%d", internal),
+				EndRepeated:   fmt.Sprintf("%d", internal),
+				Output:        "/data/output/diff",
+				Richer:        true,
+			}
+			config.Group = append(config.Group, temp)
+		}
+	}
+	for _, v := range lines {
+		if strings.HasSuffix(v, "_1") {
+			config.Samples = append(config.Samples, strings.Replace(v, "_1", "", -1))
+		}
+	}
+	filePtr, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer filePtr.Close()
+	//创建基于文件的JSON编码器
+	encoder := json.NewEncoder(filePtr)
+	//将小黑子实例编码到文件中
+	err = encoder.Encode(config)
+	if err != nil {
+		return err
+	}
+	return nil
 }

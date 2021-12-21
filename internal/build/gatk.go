@@ -153,6 +153,25 @@ func (g *gatkPlugin) check() {
 			g.logger.Warn("gatk out", zap.Strings("files", names))
 		}
 	}
+	if b := utils.IsExist(types.GATK_G_OUT); !b {
+		cmd := exec.Command("mkdir", "-p", types.GATK_G_OUT)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("create gatk dir", zap.Error(err))
+		}
+	} else {
+		files, err := ioutil.ReadDir(types.GATK_G_OUT)
+		if err != nil {
+			g.logger.Error("existed gatk dir", zap.Error(err))
+		} else {
+			names := make([]string, 0)
+			for _, v := range files {
+				names = append(names, v.Name())
+			}
+			g.logger.Warn("gatk out vcf", zap.Strings("files", names))
+		}
+	}
 }
 func (g *gatkPlugin) Name() string {
 	return "gatkPlugin"
@@ -579,7 +598,7 @@ func (g *gatkPlugin) buildVCF() error {
 					cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
 						//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
 						"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
-						"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp))
+						"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {

@@ -16,6 +16,7 @@ const (
 	SORTED_OUT    = "/data/output/sorted_result"
 	SINGLE_OUT    = "/data/output/single_result"
 	GATK_OUT      = "/data/output/gatk_result"
+	GATK_G_OUT    = "/data/output/gatk_vcf_result"
 	//DIFF_OUT = "/data/output/diff_result"
 	KEGG_OUT = "/data/output/kegg_result"
 	GO_OUT   = "/data/output/go_result"

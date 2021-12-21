@@ -189,5 +189,5 @@ names(result)[3] = files[3]
 
 #result[0]
 #veen.diagram(x= result,"/data/output/report_result/veen.png",col="white",fill=c('res','green','blue'))
-venn.diagram(x=result, "/data/output/report_result/veen.png", height = 450, width = 450,  resolution =300, imagetype="png", col="white", fill=c(colors()[616], colors()[38], colors()[468]), alpha=c(0.6, 0.6, 0.6), lwd=c(1, 1, 1), cex=0.3, cat.dist=c(-0.07, -0.07, -0.05), cat.pos=c(320, 30, 180), cat.cex=0.45, fontface = "bold",fontfamily = "sans",cat.default.pos = "outer")`
+venn.diagram(x=result, "/data/output/report_result/veen.png", height = 450, width = 450,  resolution =300, imagetype="png", col="white", fill=c(colors()[616], colors()[38], colors()[468]), alpha=c(0.6, 0.6, 0.6), lwd=c(1, 1, 1),lty = 1,  cex=0.3, cat.dist=c(-0.07, -0.07, -0.05), cat.pos=c(320, 30, 180), cat.cex=0.45, fontface = "bold",fontfamily = "sans",cat.default.pos = "outer")`
 )

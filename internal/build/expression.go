@@ -313,7 +313,7 @@ func (e *expressionPlugin) matrix() error {
 		e.logger.Error("bash run ", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	return nil
+	return utils.BuildConfig(path.Join(types.EXPRESSION_OUT, "gene_count.csv"), 3, "/data/build_config.json")
 }
 func (e *expressionPlugin) buildReport() error {
 	wd, _ := os.Getwd()

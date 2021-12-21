@@ -27,6 +27,7 @@ type Config struct {
 	Factor float64 `json:"factor"` // 0.05
 	//File string `json:"file"`			//基因文件位置
 	Group     []*Group   `json:"group"`
+	Samples   []string   `json:"samples"`
 	DiffGroup *DiffGroup `json:"diffGroup"`
 }
 

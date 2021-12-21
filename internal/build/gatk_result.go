@@ -146,6 +146,25 @@ func (g *gatkResultPlugin) check() {
 			g.logger.Warn("gatk out", zap.Strings("files", names))
 		}
 	}
+	if b := utils.IsExist(types.GATK_G_OUT); !b {
+		cmd := exec.Command("mkdir", "-p", types.GATK_G_OUT)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("create gatk dir", zap.Error(err))
+		}
+	} else {
+		files, err := ioutil.ReadDir(types.GATK_G_OUT)
+		if err != nil {
+			g.logger.Error("existed gatk dir", zap.Error(err))
+		} else {
+			names := make([]string, 0)
+			for _, v := range files {
+				names = append(names, v.Name())
+			}
+			g.logger.Warn("gatk out vcf", zap.Strings("files", names))
+		}
+	}
 }
 func (g *gatkResultPlugin) Name() string {
 	return "gatkResultPlugin"
@@ -165,20 +184,20 @@ func (g *gatkResultPlugin) Build(ctx context.Context) error {
 }
 func (g *gatkResultPlugin) merge() error {
 	vcfs := ""
-	files, err := ioutil.ReadDir(types.GATK_OUT)
+	files, err := ioutil.ReadDir(types.GATK_G_OUT)
 	if err != nil {
 		return err
 	}
 	for _, v := range files {
 		if strings.HasSuffix(v.Name(), ".g.vcf") {
 			//vcfs = append(vcfs,fmt.Sprintf("%s/%s",types.GATK_OUT,v.Name()))
-			vcfs = vcfs + fmt.Sprintf(" -V %s/%s ", types.GATK_OUT, v.Name())
+			vcfs = vcfs + fmt.Sprintf(" -V %s/%s ", types.GATK_G_OUT, v.Name())
 		}
 	}
 	if vcfs != "" {
 		temp := "merge"
 		start := time.Now()
-		vcfs = "gatk --java-options '-Xmx30G' CombineGVCFs -R gene.fa " + vcfs + " -O " + fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp)
+		vcfs = "gatk --java-options '-Xmx30G' CombineGVCFs -R gene.fa " + vcfs + " -O " + fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp)
 		cmd := exec.Command("/bin/sh", "-c", vcfs)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -189,8 +208,8 @@ func (g *gatkResultPlugin) merge() error {
 		}
 		start = time.Now()
 		cmd = exec.Command("gatk", "GenotypeGVCFs", "-R", "gene.fa",
-			"-V", fmt.Sprintf("%s/%s.g.vcf", types.GATK_OUT, temp),
-			"-O", fmt.Sprintf("%s/%s.vcf", types.GATK_OUT, temp))
+			"-V", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp),
+			"-O", fmt.Sprintf("%s/%s.vcf", types.GATK_G_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
@@ -199,7 +218,7 @@ func (g *gatkResultPlugin) merge() error {
 			return err
 		}
 
-		cmd = exec.Command("bgzip", "-f", fmt.Sprintf("%s/%s.vcf", types.GATK_OUT, temp))
+		cmd = exec.Command("bgzip", "-f", fmt.Sprintf("%s/%s.vcf", types.GATK_G_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
@@ -210,7 +229,7 @@ func (g *gatkResultPlugin) merge() error {
 		g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
 		//tabix -p vcf ${file}.vcf.gz
 		start = time.Now()
-		cmd = exec.Command("tabix", "-p", "vcf", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp))
+		cmd = exec.Command("tabix", "-p", "vcf", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_G_OUT, temp))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
@@ -299,7 +318,7 @@ func (g *gatkResultPlugin) result() error {
 		return err
 	}
 	//bar := e.bar.NewBar("featurecounts",len(files))
-	files, err = ioutil.ReadDir(types.GATK_OUT)
+	files, err = ioutil.ReadDir(types.GATK_G_OUT)
 	if err != nil {
 		return err
 	}
@@ -323,7 +342,7 @@ func (g *gatkResultPlugin) result() error {
 					start := time.Now()
 					//gatk SelectVariants -select-type SNP -V ${file}.vcf.gz -O ${file}.snp.vcf.gz
 					cmd := exec.Command("gatk", "SelectVariants", "-select-type",
-						"SNP", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp), "-O", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_OUT, temp))
+						"SNP", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_G_OUT, temp), "-O", fmt.Sprintf("%s/%s.snp.vcf.gz", types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {
@@ -334,8 +353,8 @@ func (g *gatkResultPlugin) result() error {
 					start = time.Now()
 					cmd = exec.Command("/bin/sh", "-c",
 						fmt.Sprintf(`gatk VariantFiltration -V %s/%s.snp.vcf.gz --filter-expression 'QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0' --filter-name PASS -O %s/%s.snp.filter.vcf.gz`,
-							types.GATK_OUT, temp,
-							types.GATK_OUT, temp))
+							types.GATK_G_OUT, temp,
+							types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {
@@ -350,8 +369,8 @@ func (g *gatkResultPlugin) result() error {
 					start := time.Now()
 					cmd := exec.Command("gatk", "SelectVariants",
 						//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-						"-select-type", "INDEL", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_OUT, temp),
-						"-O", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_OUT, temp))
+						"-select-type", "INDEL", "-V", fmt.Sprintf("%s/%s.vcf.gz", types.GATK_G_OUT, temp),
+						"-O", fmt.Sprintf("%s/%s.indel.vcf.gz", types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {
@@ -362,8 +381,8 @@ func (g *gatkResultPlugin) result() error {
 					start = time.Now()
 					cmd = exec.Command("/bin/sh", "-c",
 						fmt.Sprintf(`gatk VariantFiltration -V %s/%s.indel.vcf.gz --filter-expression 'QD < 2.0 || FS > 200.0 || SOR > 10.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0' --filter-name PASS -O %s/%s.indel.filter.vcf.gz`,
-							types.GATK_OUT, temp,
-							types.GATK_OUT, temp))
+							types.GATK_G_OUT, temp,
+							types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {
@@ -378,9 +397,9 @@ func (g *gatkResultPlugin) result() error {
 				start := time.Now()
 				cmd := exec.Command("gatk", "MergeVcfs",
 					//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-					"-I", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_OUT, temp),
-					"-I", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_OUT, temp),
-					"-O", fmt.Sprintf("%s/%s.filter.vcf.gz", types.GATK_OUT, temp))
+					"-I", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_G_OUT, temp),
+					"-I", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_G_OUT, temp),
+					"-O", fmt.Sprintf("%s/%s.filter.vcf.gz", types.GATK_G_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {

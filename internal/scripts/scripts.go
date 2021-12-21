@@ -357,7 +357,7 @@ data = as.data.frame(lapply(data,as.numeric))
 data[data==0] <- NA
 data[is.na(data)] <- min(data,na.rm = T)*0.01
 head(data)
-png("/data/output/report_result/cluster.png")
+png("/data/output/report_result/cluster.png",width=800,height=600)
 pheatmap(log10(data))
 dev.off()
 
