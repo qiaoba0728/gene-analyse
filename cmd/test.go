@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"context"
-	"github.com/qiaoba0728/gene-analyse/internal/build"
-	"github.com/qiaoba0728/gene-analyse/internal/conf"
-	"github.com/qiaoba0728/gene-analyse/internal/utils"
+	"github.com/qiaoba0728/gene-analyse/internal/common"
 	"github.com/spf13/cobra"
 )
 
@@ -14,12 +11,16 @@ var testCmd = &cobra.Command{
 	Long:  "run gene-analyse plugin build test data",
 	PreRun: func(cmd *cobra.Command, args []string) {
 		//conf.InitConfig(cfgFile)
-		conf.InitBuildConfig("I://code//go//src//gene-analyse//build.json")
+		//conf.InitBuildConfig("I://code//go//src//gene-analyse//build.json")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		conf.GetBuildConfig()
-		l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
-		random := build.NewRandomPlugin(l)
-		random.Build(context.Background())
+		//conf.GetBuildConfig()
+		//l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
+		//random := build.NewRandomPlugin(l)
+		//random.Build(context.Background())
+		err := common.BuildReport()
+		if err != nil {
+			panic(err)
+		}
 	},
 }

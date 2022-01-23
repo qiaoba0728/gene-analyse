@@ -166,10 +166,112 @@ func (g *gatkResultPlugin) check() {
 		}
 	}
 }
+func (g *gatkResultPlugin) getGTF() (string, error) {
+	files, err := ioutil.ReadDir(types.REFERENCES)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".gtf") {
+			return path.Join(types.REFERENCES, v.Name()), nil
+		}
+	}
+	return "", errors.New("gtf not find")
+}
+func (g *gatkResultPlugin) buildBed12() error {
+	var (
+		gtf string
+		err error
+	)
+	if utils.IsExist(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12")) {
+		g.logger.Info("bed file has existed")
+		return nil
+	}
+	if gtf, err = g.getGTF(); err != nil {
+		return err
+	}
+	f, err := os.Create(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+	if err != nil {
+		g.logger.Error("read_distribution create fail", zap.Error(err))
+		return err
+	}
+	defer f.Close()
+	cmd := exec.Command("/work/gtf2bed12.perl", gtf)
+	cmd.Stdout = f
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run gtf to bed", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("run build bed12", zap.Error(err), zap.String("cmd", cmd.String()))
+	}
+	return err
+}
+func (g *gatkResultPlugin) geneDepthCoverage(dir string) error {
+	var (
+		err    error
+		pool   *ants.Pool
+		files  []os.FileInfo
+		wg     sync.WaitGroup
+		inputs []string
+	)
+	pool, err = ants.NewPool(4)
+	if err != nil {
+		return err
+	}
+	//bar := e.bar.NewBar("featurecounts",len(files))
+	files, err = ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".sorted.bam") {
+			wg.Add(1)
+			name := v.Name()
+			//r := path.Join(wd,"script","featurecounts.R")
+			input := path.Join(dir, name)
+			inputs = append(inputs, input)
+			if err = pool.Submit(func() {
+				temp := strings.TrimSuffix(name, ".sorted.bam")
+				if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, temp)) {
+					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err = cmd.Run(); err != nil {
+						g.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					}
+				}
+				cmd := exec.Command("/work/bamdst", "-p",
+					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
+					input)
+				defer func() {
+					//bar.Add(1)
+					wg.Done()
+					g.logger.Info("geneDepthCoverage file success", zap.String("name", name))
+				}()
+				g.logger.Info("run geneDepthCoverage", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					g.logger.Error("geneDepthCoverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}); err != nil {
+				g.logger.Error("pool run fail", zap.Error(err))
+			}
+		}
+	}
+	wg.Wait()
+	return nil
+}
 func (g *gatkResultPlugin) Name() string {
 	return "gatkResultPlugin"
 }
 func (g *gatkResultPlugin) Build(ctx context.Context) error {
+	go func() {
+		err := g.buildBed12()
+		if err != nil {
+			g.logger.Error("build bed fail", zap.Error(err))
+		}
+	}()
 	if err := g.index(); err != nil {
 		return err
 	}
@@ -177,6 +279,9 @@ func (g *gatkResultPlugin) Build(ctx context.Context) error {
 		return err
 	}
 	if err := g.result(); err != nil {
+		return err
+	}
+	if err := g.geneDepthCoverage(types.SORTED_OUT); err != nil {
 		return err
 	}
 	g.logger.Info("gatk build finished")

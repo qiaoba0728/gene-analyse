@@ -107,6 +107,7 @@ func TestRandFloats(t *testing.T) {
 }
 
 func TestBuildConfig(t *testing.T) {
-	err := BuildConfig("D://gene_count.csv", 3, "D://build.json")
+	params, err := BuildConfig("D://gene_count.csv", 3, "D://build.json")
 	assert.Nil(t, err)
+	t.Log(params)
 }

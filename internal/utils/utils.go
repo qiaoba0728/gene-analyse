@@ -344,9 +344,10 @@ func RandFloats(min, max float64, n int) []float64 {
 	}
 	return res
 }
-func BuildConfig(path string, internal int, target string) error {
+func BuildConfig(path string, internal int, target string) ([]string, error) {
 	var (
 		config *conf.Config
+		params []string
 	)
 	config = &conf.Config{
 		GeneDB:    "Rsativus",
@@ -357,21 +358,21 @@ func BuildConfig(path string, internal int, target string) error {
 	//先获取到文件信息
 	fileinfo, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("get file info error")
+		return params, fmt.Errorf("get file info error")
 	}
 	//判断是否是目录
 	if fileinfo.IsDir() {
-		return fmt.Errorf("paths is dir")
+		return params, fmt.Errorf("paths is dir")
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return params, err
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
 	line, err := rd.ReadString('\n')
 	if err != nil {
-		return err
+		return params, err
 	}
 	lines := strings.Split(line, "\t")
 	for i := 1; i < len(lines)-1; i = i + internal {
@@ -387,6 +388,8 @@ func BuildConfig(path string, internal int, target string) error {
 			}
 			config.Group = append(config.Group, temp)
 		}
+		param := fmt.Sprintf("%d:%d", i+1, i+internal)
+		params = append(params, param)
 	}
 	for _, v := range lines {
 		if strings.HasSuffix(v, "_1") {
@@ -395,7 +398,7 @@ func BuildConfig(path string, internal int, target string) error {
 	}
 	filePtr, err := os.Create(target)
 	if err != nil {
-		return err
+		return params, err
 	}
 	defer filePtr.Close()
 	//创建基于文件的JSON编码器
@@ -403,7 +406,10 @@ func BuildConfig(path string, internal int, target string) error {
 	//将小黑子实例编码到文件中
 	err = encoder.Encode(config)
 	if err != nil {
-		return err
+		return params, err
 	}
-	return nil
+	for k, v := range config.Samples {
+		params[k] = fmt.Sprintf("%s:%s", params[k], v)
+	}
+	return params, nil
 }

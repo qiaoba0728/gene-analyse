@@ -7,6 +7,7 @@ const (
 	OUTPUT        = "/data/output"
 	LOG           = "/data/log"
 	FASTP_OUT     = "/data/output/clean"
+	FASTP_QC_OUT  = "/data/output/clean_result"
 	REFERENCES    = "/data/input/references"
 	GENOME_PREFIX = "/data/input/index/Species"
 	GENOME_INDEX  = "/data/input/index"

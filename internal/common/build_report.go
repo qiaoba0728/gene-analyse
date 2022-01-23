@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	SummaryTemplate = "|%s|%s|%s|%s|%s|%s|%s|"
+	SummaryTemplate       = "|%s|%s|%s|%s|%s|%s|"
+	ResultSummaryTemplate = "|%s|%s|%s|%s|%s|"
 )
 const (
 	reportBeforeContentTemplate = `<details><summary>%s</summary><center><img src="../asset/%s_content_before.png">注：横坐标是Reads中碱基位置（5'->3'），横坐标是该位点某碱基含量</center></details>`
@@ -22,6 +23,13 @@ const (
 	reportAfterQualityTemplate  = `<details><summary>%s</summary><center><img src="../asset/%s_quality_after.png">注：横坐标是Reads中碱基位置（5'->3'），横坐标是该位点某碱基质量值</center></details>`
 )
 
+type Summary struct {
+	Name           string  `json:"name"`
+	TotalReads     float64 `csv:"total_reads"`
+	TotalBases     float64 `csv:"total_bases"`
+	CleanReadsRate float64 `csv:"clean_reads_rate"`
+	CleanDataRate  float64 `csv:"clean_data_rate"`
+}
 type ReportSummaryMeta struct {
 	TotalReads      float64 `csv:"total_reads"`
 	TotalBases      float64 `csv:"total_bases"`
@@ -53,6 +61,7 @@ type ReportContentCurves struct {
 }
 
 func BuildReport() error {
+	resultSummary := make([]*Summary, 0)
 	beforeSummary := make([]*ReportSummaryMeta, 0)
 	afterSummary := make([]*ReportSummaryMeta, 0)
 	read1BeforeQualityCurves := make([]*ReportQualityCurves, 0)
@@ -102,6 +111,14 @@ func BuildReport() error {
 				GCContent:       docs.Summary.AfterFiltering.GCContent,
 				Name:            name,
 			}
+			summary := &Summary{
+				Name:           name,
+				TotalReads:     docs.Summary.AfterFiltering.TotalReads,
+				TotalBases:     docs.Summary.AfterFiltering.TotalBases,
+				CleanReadsRate: after.TotalReads / before.TotalReads,
+				CleanDataRate:  after.TotalBases / before.TotalBases,
+			}
+			resultSummary = append(resultSummary, summary)
 			afterSummary = append(afterSummary, after)
 			for i := 0; i < len(docs.Read1Before.QualityCurves.A); i++ {
 				read1BeforeQuality := &ReportQualityCurves{
@@ -240,14 +257,15 @@ func BuildReport() error {
 	}
 	result := make([]string, 0)
 	for _, v := range beforeSummary {
-		temp := fmt.Sprintf(SummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), utils.ToString(v.Q20Bases), utils.ToString(v.Q30Bases), fmt.Sprintf("%.4f%%", v.Q20Rate*100.0), fmt.Sprintf("%.4f%%", v.Q30Rate*100.0))
+		//temp := fmt.Sprintf(SummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), utils.ToString(v.Q20Bases), utils.ToString(v.Q30Bases), fmt.Sprintf("%.4f%%", v.Q20Rate*100.0), fmt.Sprintf("%.4f%%", v.Q30Rate*100.0))
+		temp := fmt.Sprintf(SummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), utils.ToString(v.Q30Bases), fmt.Sprintf("%.4f%%", v.Q20Rate*100.0), fmt.Sprintf("%.4f%%", v.Q30Rate*100.0))
 		result = append(result, temp)
 	}
 	b := strings.Join(result, "\n")
 	_ = ioutil.WriteFile(fmt.Sprintf("%s/%s", types.FASTP_OUT, "beforeSummary.template"), []byte(b), 0644)
 	result = make([]string, 0)
 	for _, v := range afterSummary {
-		temp := fmt.Sprintf(SummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), utils.ToString(v.Q20Bases), utils.ToString(v.Q30Bases), fmt.Sprintf("%.4f%%", v.Q20Rate*100.0), fmt.Sprintf("%.4f%%", v.Q30Rate*100.0))
+		temp := fmt.Sprintf(SummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), utils.ToString(v.Q30Bases), fmt.Sprintf("%.4f%%", v.Q20Rate*100.0), fmt.Sprintf("%.4f%%", v.Q30Rate*100.0))
 		result = append(result, temp)
 	}
 	b = strings.Join(result, "\n")
@@ -259,5 +277,13 @@ func BuildReport() error {
 	result = append(result, reportAfterQualityTemplates...)
 	b = strings.Join(result, "\n")
 	_ = ioutil.WriteFile(fmt.Sprintf("%s/%s", types.FASTP_OUT, "reportTemplate.template"), []byte(b), 0644)
+
+	result = make([]string, 0)
+	for _, v := range resultSummary {
+		temp := fmt.Sprintf(ResultSummaryTemplate, v.Name, utils.ToString(v.TotalReads), utils.ToString(v.TotalBases), fmt.Sprintf("%.2f", v.CleanReadsRate*100.0), fmt.Sprintf("%.2f", v.CleanDataRate*100.0))
+		result = append(result, temp)
+	}
+	b = strings.Join(result, "\n")
+	_ = ioutil.WriteFile(fmt.Sprintf("%s/%s", types.FASTP_OUT, "result.template"), []byte(b), 0644)
 	return nil
 }

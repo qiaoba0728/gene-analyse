@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/panjf2000/ants"
+	"github.com/qiaoba0728/gene-analyse/internal/common"
 	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"go.uber.org/zap"
@@ -144,6 +145,10 @@ func (g *bsaPlugin) Build(ctx context.Context) error {
 		if b := utils.IsExist(types.FASTP_OUT); !b || (b && utils.Files(types.FASTP_OUT) == 0) {
 			if err := g.fastq(types.INPUT); err != nil {
 				g.logger.Error("create clean existed", zap.Error(err))
+			} else {
+				if err = common.BuildReport(); err != nil {
+					g.logger.Error("fastp -> report", zap.Error(err))
+				}
 			}
 		} else {
 			g.logger.Info("clean file existed")
@@ -344,6 +349,7 @@ func (g *bsaPlugin) pipeline() error {
 	g.logger.Info("dna pipeline", zap.String("cmd", cmd.String()))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 	if err = cmd.Run(); err != nil {
 		g.logger.Error("dna pipeline fail", zap.Error(err))
 		return err
