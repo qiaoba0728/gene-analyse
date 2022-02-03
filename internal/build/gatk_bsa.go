@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/panjf2000/ants"
-	"github.com/qianlnk/pgbar"
 	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"go.uber.org/zap"
@@ -18,20 +17,21 @@ import (
 	"time"
 )
 
-type gatkResultPlugin struct {
-	bar *pgbar.Pgbar
-	tp  types.SampleType
+type gatkBsaPlugin struct {
+	tp types.SampleType
 	//samples []string
 	logger *zap.Logger
 }
 
-func NewGATKResultPlugin(logger *zap.Logger) types.Plugin {
-	return &gatkResultPlugin{
+func NewGATKBsaPluginPlugin(logger *zap.Logger) types.Plugin {
+	return &gatkBsaPlugin{
 		logger: logger,
-		bar:    pgbar.New("gatk"),
 	}
 }
-func (g *gatkResultPlugin) check() {
+func (g *gatkBsaPlugin) Name() string {
+	return "gatk_bsa"
+}
+func (g *gatkBsaPlugin) check() {
 	if b := utils.IsExist(types.LOG); !b {
 		cmd := exec.Command("mkdir", "-p", types.LOG)
 		cmd.Stdout = os.Stdout
@@ -49,25 +49,6 @@ func (g *gatkResultPlugin) check() {
 				names = append(names, v.Name())
 			}
 			g.logger.Warn("log", zap.Strings("files", names))
-		}
-	}
-	if b := utils.IsExist(types.FASTP_OUT); !b {
-		cmd := exec.Command("mkdir", "-p", types.FASTP_OUT)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("create clean dir", zap.Error(err))
-		}
-	} else {
-		files, err := ioutil.ReadDir(types.FASTP_OUT)
-		if err != nil {
-			g.logger.Error("existed clean dir", zap.Error(err))
-		} else {
-			names := make([]string, 0)
-			for _, v := range files {
-				names = append(names, v.Name())
-			}
-			g.logger.Warn("fastp out", zap.Strings("files", names))
 		}
 	}
 	if b := utils.IsExist(types.REPORT_OUT); !b {
@@ -89,43 +70,8 @@ func (g *gatkResultPlugin) check() {
 			g.logger.Warn("report out", zap.Strings("files", names))
 		}
 	}
-	if b := utils.IsExist(types.HISAT2_OUT); !b {
-		cmd := exec.Command("mkdir", "-p", types.HISAT2_OUT)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("create hisat2 dir", zap.Error(err))
-		}
-	} else {
-		files, err := ioutil.ReadDir(types.HISAT2_OUT)
-		if err != nil {
-			g.logger.Error("existed hisat2 dir", zap.Error(err))
-		} else {
-			names := make([]string, 0)
-			for _, v := range files {
-				names = append(names, v.Name())
-			}
-			g.logger.Warn("hisat2 out", zap.Strings("files", names))
-		}
-	}
-	if b := utils.IsExist(types.SORTED_OUT); !b {
-		cmd := exec.Command("mkdir", "-p", types.SORTED_OUT)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("create hisat2 sorted dir", zap.Error(err))
-		}
-	} else {
-		files, err := ioutil.ReadDir(types.SORTED_OUT)
-		if err != nil {
-			g.logger.Error("existed hisat2 sorted dir", zap.Error(err))
-		} else {
-			names := make([]string, 0)
-			for _, v := range files {
-				names = append(names, v.Name())
-			}
-			g.logger.Warn("hisat2 sorted out", zap.Strings("files", names))
-		}
+	if !utils.IsExist(fmt.Sprintf("%s/smhisat2_out1", types.BSA_OUT)) || !utils.IsExist(fmt.Sprintf("%s/smhisat2_out2", types.BSA_OUT)) {
+		panic(errors.New("bam not existed"))
 	}
 	if b := utils.IsExist(types.GATK_OUT); !b {
 		cmd := exec.Command("mkdir", "-p", types.GATK_OUT)
@@ -166,7 +112,7 @@ func (g *gatkResultPlugin) check() {
 		}
 	}
 }
-func (g *gatkResultPlugin) getGTF() (string, error) {
+func (g *gatkBsaPlugin) getGTF() (string, error) {
 	files, err := ioutil.ReadDir(types.REFERENCES)
 	if err != nil {
 		return "", err
@@ -178,117 +124,147 @@ func (g *gatkResultPlugin) getGTF() (string, error) {
 	}
 	return "", errors.New("gtf not find")
 }
-func (g *gatkResultPlugin) buildBed12() error {
-	var (
-		gtf string
-		err error
-	)
-	if utils.IsExist(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12")) {
-		g.logger.Info("bed file has existed")
-		return nil
-	}
-	if gtf, err = g.getGTF(); err != nil {
-		return err
-	}
-	f, err := os.Create(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+func (g *gatkBsaPlugin) getfa() (string, error) {
+	files, err := ioutil.ReadDir(types.REFERENCES)
 	if err != nil {
-		g.logger.Error("read_distribution create fail", zap.Error(err))
-		return err
-	}
-	defer f.Close()
-	cmd := exec.Command("/work/gtf2bed12.perl", gtf)
-	cmd.Stdout = f
-	cmd.Stderr = os.Stderr
-	g.logger.Info("run gtf to bed", zap.String("cmd", cmd.String()))
-	if err = cmd.Run(); err != nil {
-		g.logger.Error("run build bed12", zap.Error(err), zap.String("cmd", cmd.String()))
-	}
-	return err
-}
-func (g *gatkResultPlugin) geneDepthCoverage(dir string) error {
-	var (
-		err    error
-		pool   *ants.Pool
-		files  []os.FileInfo
-		wg     sync.WaitGroup
-		inputs []string
-	)
-	pool, err = ants.NewPool(4)
-	if err != nil {
-		return err
-	}
-	//bar := e.bar.NewBar("featurecounts",len(files))
-	files, err = ioutil.ReadDir(dir)
-	if err != nil {
-		return err
+		return "", err
 	}
 	for _, v := range files {
-		// 重测序
-		if strings.HasSuffix(v.Name(), ".sorted.bam") {
-			wg.Add(1)
-			name := v.Name()
-			//r := path.Join(wd,"script","featurecounts.R")
-			input := path.Join(dir, name)
-			inputs = append(inputs, input)
-			if err = pool.Submit(func() {
-				temp := strings.TrimSuffix(name, ".sorted.bam")
-				if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, temp)) {
-					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					if err = cmd.Run(); err != nil {
-						g.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
-					}
-				}
-				cmd := exec.Command("/work/bamdst", "-p",
-					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
-					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
-					input)
-				defer func() {
-					//bar.Add(1)
-					wg.Done()
-					g.logger.Info("geneDepthCoverage file success", zap.String("name", name))
-				}()
-				g.logger.Info("run geneDepthCoverage", zap.String("cmd", cmd.String()))
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				if err = cmd.Run(); err != nil {
-					g.logger.Error("geneDepthCoverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
-				}
-			}); err != nil {
-				g.logger.Error("pool run fail", zap.Error(err))
+		if strings.HasSuffix(v.Name(), ".fasta") || strings.HasSuffix(v.Name(), ".fa") {
+			return path.Join(types.REFERENCES, v.Name()), nil
+		}
+	}
+	return "", errors.New("fa not find")
+}
+func (g *gatkBsaPlugin) index() error {
+	fa, err := g.getfa()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("cp", "-r", fa, "./gene.fa")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("create index dir", zap.Error(err))
+		return err
+	}
+	cmd = exec.Command("bwa", "index", "gene.fa")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("create index dir", zap.Error(err))
+		return err
+	}
+	cmd = exec.Command("samtools", "faidx", "gene.fa")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("create index dir", zap.Error(err))
+		return err
+	}
+	cmd = exec.Command("gatk", "CreateSequenceDictionary", "-R",
+		"gene.fa", "-O", "gene.dict")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("create index dir", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (g *gatkBsaPlugin) Build(ctx context.Context) error {
+	var (
+		err  error
+		bams []string
+		wg   sync.WaitGroup
+	)
+	g.check()
+	if err = g.buildBed12(); err != nil {
+		g.logger.Error("build bed fail", zap.Error(err))
+		return err
+	}
+	if err = g.index(); err != nil {
+		g.logger.Error("build index fail", zap.Error(err))
+		return err
+	}
+	//标记重复序列
+	start := time.Now()
+	bams = []string{"/data/output/smsnpMapper_out/smhisat2_out1/acc.sorted.bam",
+		"/data/output/smsnpMapper_out/smhisat2_out2/acc.sorted.bam"}
+	wg.Add(1)
+	for k, _ := range bams {
+		go func() {
+			defer func() {
+				wg.Done()
+			}()
+			if err = g.build(bams[0], fmt.Sprintf("bam%d", k)); err != nil {
+				g.logger.Error("build bam1 fail", zap.Error(err))
 			}
+		}()
+	}
+	for k, _ := range bams {
+		if err = g.geneDepthCoverage(bams[0], fmt.Sprintf("bam%d", k)); err != nil {
+			g.logger.Error("build bam1 fail", zap.Error(err))
 		}
 	}
 	wg.Wait()
+	g.logger.Info("run cmd finished", zap.Duration("lost", time.Now().Sub(start)))
+	if err = g.merge(); err != nil {
+		g.logger.Error("build merge fail", zap.Error(err))
+		return err
+	}
+	g.logger.Info("run cmd merge finished", zap.Duration("lost", time.Now().Sub(start)))
+	if err = g.result(); err != nil {
+		g.logger.Error("build merge fail", zap.Error(err))
+		return err
+	}
+	g.logger.Info("run cmd result finished", zap.Duration("lost", time.Now().Sub(start)))
 	return nil
 }
-func (g *gatkResultPlugin) Name() string {
-	return "gatkResultPlugin"
-}
-func (g *gatkResultPlugin) Build(ctx context.Context) error {
-	go func() {
-		err := g.buildBed12()
-		if err != nil {
-			g.logger.Error("build bed fail", zap.Error(err))
-		}
-	}()
-	if err := g.index(); err != nil {
+func (g *gatkBsaPlugin) build(input, name string) error {
+	var (
+		err error
+		cmd *exec.Cmd
+	)
+	cmd = exec.Command("gatk", "MarkDuplicates",
+		"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, name),
+		"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.GATK_OUT, name))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("run gatk MarkDuplicates", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	if err := g.merge(); err != nil {
+	g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()))
+	cmd = exec.Command("samtools", "index",
+		fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, name))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("run samtools bam", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	if err := g.result(); err != nil {
+	g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()))
+	cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
+		//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+		"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, name),
+		"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, name))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("run gatk HaplotypeCaller bam", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	if err := g.geneDepthCoverage(types.SORTED_OUT); err != nil {
-		return err
-	}
-	g.logger.Info("gatk build finished")
+	g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()))
 	return nil
 }
-func (g *gatkResultPlugin) merge() error {
+func (g *gatkBsaPlugin) merge() error {
 	vcfs := ""
 	files, err := ioutil.ReadDir(types.GATK_G_OUT)
 	if err != nil {
@@ -347,65 +323,13 @@ func (g *gatkResultPlugin) merge() error {
 	}
 	return nil
 }
-func (g *gatkResultPlugin) getfa() (string, error) {
-	files, err := ioutil.ReadDir(types.REFERENCES)
-	if err != nil {
-		return "", err
-	}
-	for _, v := range files {
-		if strings.HasSuffix(v.Name(), ".fasta") || strings.HasSuffix(v.Name(), ".fa") {
-			return path.Join(types.REFERENCES, v.Name()), nil
-		}
-	}
-	return "", errors.New("fa not find")
-}
-func (g *gatkResultPlugin) index() error {
-	fa, err := g.getfa()
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command("cp", "-r", fa, "./gene.fa")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
-	if err := cmd.Run(); err != nil {
-		g.logger.Error("create index dir", zap.Error(err))
-		return err
-	}
-	cmd = exec.Command("bwa", "index", "gene.fa")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
-	if err := cmd.Run(); err != nil {
-		g.logger.Error("create index dir", zap.Error(err))
-		return err
-	}
-	cmd = exec.Command("samtools", "faidx", "gene.fa")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
-	if err := cmd.Run(); err != nil {
-		g.logger.Error("create index dir", zap.Error(err))
-		return err
-	}
-	cmd = exec.Command("gatk", "CreateSequenceDictionary", "-R",
-		"gene.fa", "-O", "gene.dict")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	g.logger.Info("index run ", zap.String("cmd", cmd.String()))
-	if err := cmd.Run(); err != nil {
-		g.logger.Error("create index dir", zap.Error(err))
-		return err
-	}
-	return nil
-}
-func (g *gatkResultPlugin) result() error {
+
+func (g *gatkBsaPlugin) result() error {
 	var (
 		err   error
 		pool  *ants.Pool
 		files []os.FileInfo
 		wg    sync.WaitGroup
-		//thread int
 	)
 	pool, err = ants.NewPool(8)
 	if err != nil {
@@ -416,7 +340,6 @@ func (g *gatkResultPlugin) result() error {
 	if err != nil {
 		return err
 	}
-	bar := g.bar.NewBar("vcf -> result", len(files))
 	for _, v := range files {
 		if strings.HasSuffix(v.Name(), ".vcf.gz") {
 			wg.Add(1)
@@ -427,7 +350,6 @@ func (g *gatkResultPlugin) result() error {
 				wgVCF.Add(2)
 				temp := strings.TrimSuffix(name, ".vcf.gz")
 				defer func() {
-					bar.Add(1)
 					wg.Done()
 					g.logger.Info("build gatk file success", zap.String("names", name))
 				}()
@@ -508,4 +430,56 @@ func (g *gatkResultPlugin) result() error {
 	}
 	wg.Wait()
 	return nil
+}
+func (g *gatkBsaPlugin) geneDepthCoverage(input, name string) error {
+	var (
+		err error
+	)
+	if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, name)) {
+		cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, name))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err = cmd.Run(); err != nil {
+			g.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+		}
+	}
+	cmd := exec.Command("/work/bamdst", "-p",
+		fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+		"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, name),
+		input)
+	g.logger.Info("run geneDepthCoverage", zap.String("cmd", cmd.String()))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("geneDepthCoverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
+	}
+	return nil
+}
+
+func (g *gatkBsaPlugin) buildBed12() error {
+	var (
+		gtf string
+		err error
+	)
+	if utils.IsExist(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12")) {
+		g.logger.Info("bed file has existed")
+		return nil
+	}
+	if gtf, err = g.getGTF(); err != nil {
+		return err
+	}
+	f, err := os.Create(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+	if err != nil {
+		g.logger.Error("read_distribution create fail", zap.Error(err))
+		return err
+	}
+	defer f.Close()
+	cmd := exec.Command("/work/gtf2bed12.perl", gtf)
+	cmd.Stdout = f
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run gtf to bed", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("run build bed12", zap.Error(err), zap.String("cmd", cmd.String()))
+	}
+	return err
 }

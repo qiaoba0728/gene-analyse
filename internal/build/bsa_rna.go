@@ -277,6 +277,13 @@ func (g *bsaRNAPlugin) pipeline() error {
 	if err != nil {
 		return err
 	}
+	cmd := exec.Command("/bin/bash", "-c", "cut -f1,2 > /data/input/references/size.txt")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
 	var (
 		tp     types.SampleType
 		step   string
@@ -328,13 +335,14 @@ func (g *bsaRNAPlugin) pipeline() error {
 		return err
 	}
 	g.logger.Info("get fa", zap.String("fa", fa))
-	cmd := exec.Command("RNA_BSA_pipeline.pl", "-f", fa,
+	cmd = exec.Command("RNA_BSA_pipeline.pl", "-f", fa,
 		"-b", types.BSA_GENOME_PREFIX,
 		"-3", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], g.tp.CleanType()),
 		"-4", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
 		"-5", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[1], g.tp.CleanType()),
 		"-6", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[1], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
-		"-a", thread, "-s", step, "-r", window, "-d", "0.4", "-1", g.samples[0], "-2", g.samples[1])
+		"-a", thread, "-s", step, "-r", window, "-d", "0.4", "-1", g.samples[0], "-2", g.samples[1],
+		"-7", "/data/output/bsa_result/")
 	g.logger.Info("dna pipeline", zap.String("cmd", cmd.String()))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

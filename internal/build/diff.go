@@ -58,7 +58,7 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("nomode_go_ex.R", fmt.Sprintf(scripts.NOMODE_GO_EX, geneDB,
+	err = utils.WriteFile("nomode_go_ex.R", fmt.Sprintf(scripts.NOMODE_GO_EX,
 		geneDB, geneDB, g.config.Factor, geneDB, g.config.Factor, geneDB, g.config.Factor))
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
