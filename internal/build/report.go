@@ -39,7 +39,7 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	if utils.IsExist(types.SORTED_OUT) {
+	if utils.IsExist(types.SORTED_OUT) && !utils.IsExist(types.BSA_OUT) {
 		wg.Add(5)
 		go func() {
 			defer wg.Done()
@@ -93,7 +93,7 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		}()
 		go func() {
 			defer wg.Done()
-			if err = r.geneDepthCoverageEx(types.SORTED_OUT); err != nil {
+			if err = r.geneDepthCoverageEx(); err != nil {
 				r.logger.Error("geneDepthCoverageEx", zap.Error(err))
 			}
 		}()
@@ -364,7 +364,7 @@ func (r *reportPlugin) geneDepthCoverage(dir string) error {
 	wg.Wait()
 	return nil
 }
-func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
+func (r *reportPlugin) geneDepthCoverageEx() error {
 	var (
 		err error
 	)

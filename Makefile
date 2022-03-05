@@ -43,6 +43,9 @@ build:
 	@$(GOBUILD)	-o bin/linux/$(BINNAME)
 	@echo "-	 build(linux)...	 -"
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64  $(GOBUILD) -o bin/linux/$(BINNAME)
+	@$(GOBUILD)	-o bin/windows/$(BINNAME)
+	@echo "-	 build(windows)...	 -"
+	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64  $(GOBUILD) -o bin/windows/$(BINNAME)
 	@echo "-	builds completed!	-"
 	@echo "---------------------------"
 	@bin/linux/$(BINNAME) version

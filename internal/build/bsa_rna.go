@@ -272,12 +272,28 @@ func (g *bsaRNAPlugin) getfa() (string, error) {
 	}
 	return "", errors.New("fa not find")
 }
+func (g *bsaRNAPlugin) getfai() (string, error) {
+	files, err := ioutil.ReadDir(types.REFERENCES)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".fai") {
+			return path.Join(types.REFERENCES, v.Name()), nil
+		}
+	}
+	return "", errors.New("fai not find")
+}
 func (g *bsaRNAPlugin) pipeline() error {
 	fa, err := g.getfa()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("/bin/bash", "-c", "cut -f1,2 > /data/input/references/size.txt")
+	fai, err := g.getfai()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("cat %s | cut -f1,2 > /data/input/references/size.txt", fai))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {

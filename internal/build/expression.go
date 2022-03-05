@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -321,7 +322,13 @@ func (e *expressionPlugin) matrix() error {
 		e.logger.Error("bash run ", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	if params, err := utils.BuildConfig(path.Join(types.EXPRESSION_OUT, "gene_count.csv"), 3, "/data/build_config.json"); err != nil {
+	// 从环境变量获取样本数目
+	internal := 3
+	temp := os.Getenv("INTERNAL")
+	if temp != "" {
+		internal, _ = strconv.Atoi(temp)
+	}
+	if params, err := utils.BuildConfig(path.Join(types.EXPRESSION_OUT, "gene_count.csv"), internal, "/data/build_config.json"); err != nil {
 		return err
 	} else {
 		// mfuzz

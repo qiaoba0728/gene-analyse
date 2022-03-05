@@ -1,8 +1,11 @@
 package cmd
 
 import (
-	"github.com/qiaoba0728/gene-analyse/internal/common"
+	"github.com/qiaoba0728/gene-analyse/internal/types"
+	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"path"
 )
 
 var testCmd = &cobra.Command{
@@ -15,12 +18,16 @@ var testCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		//conf.GetBuildConfig()
-		//l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
+		l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
 		//random := build.NewRandomPlugin(l)
 		//random.Build(context.Background())
-		err := common.BuildReport()
-		if err != nil {
-			panic(err)
+		//err := common.BuildReport()
+		//if err != nil {
+		//	panic(err)
+		//}
+
+		if _, err := utils.BuildConfig(path.Join(types.EXPRESSION_OUT, "gene_count.csv"), 4, "/data/build_config.json"); err != nil {
+			l.Error("build config ", zap.Error(err))
 		}
 	},
 }

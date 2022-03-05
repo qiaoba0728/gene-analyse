@@ -7,6 +7,9 @@ import (
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -43,6 +46,22 @@ var mainCmd = &cobra.Command{
 				return
 			} else {
 				l.Info("data build expression success")
+			}
+		}
+		l.Info("build finished waiting exec cmd")
+		l.Info("./gene-analyse report stat")
+		l.Info("./gene-analyse report read")
+		// signal
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+		for {
+			s := <-c
+			switch s {
+			case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+				return
+			case syscall.SIGHUP:
+			default:
+				return
 			}
 		}
 	},

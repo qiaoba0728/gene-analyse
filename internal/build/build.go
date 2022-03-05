@@ -475,7 +475,7 @@ func (u *upStreamPlugin) hisat2(dir string) error {
 			if strings.HasSuffix(name, u.tp.CleanType()) {
 				temp := strings.TrimSuffix(name, u.tp.CleanType())
 				cmd := exec.Command("hisat2", "--new-summary", "-p",
-					"4", "-x", types.GENOME_PREFIX,
+					"10", "-x", types.GENOME_PREFIX,
 					"-1", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, u.tp.CleanType()),
 					"-2", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(u.tp.CleanType(), "1", "2", -1)),
 					"-S", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),

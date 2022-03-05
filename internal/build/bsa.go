@@ -253,6 +253,18 @@ func (g *bsaPlugin) getfa() (string, error) {
 	}
 	return "", errors.New("fa not find")
 }
+func (g *bsaPlugin) getfai() (string, error) {
+	files, err := ioutil.ReadDir(types.REFERENCES)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".fai") {
+			return path.Join(types.REFERENCES, v.Name()), nil
+		}
+	}
+	return "", errors.New("fai not find")
+}
 func (g *bsaPlugin) fastqc(dir string) error {
 	//fastqc -t 12 -o out_path sample1_1.fq sample1_2.fq
 	cmd := exec.Command("fastqc", "-t", "4",
@@ -286,13 +298,6 @@ func (g *bsaPlugin) fastqc(dir string) error {
 func (g *bsaPlugin) pipeline() error {
 	fa, err := g.getfa()
 	if err != nil {
-		return err
-	}
-	cmd := exec.Command("/bin/bash", "-c", "cut -f1,2 > /data/input/references/size.txt")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err = cmd.Run(); err != nil {
-		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
 	var tp types.SampleType
@@ -346,7 +351,7 @@ func (g *bsaPlugin) pipeline() error {
 	if thread = os.Getenv("THREAD"); thread == "" {
 		thread = "10"
 	}
-	cmd = exec.Command("DNA_BSA_pipeline.pl", "-f", fa,
+	cmd := exec.Command("DNA_BSA_pipeline.pl", "-f", fa,
 		"-b", types.BSA_GENOME_PREFIX,
 		"-3", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], g.tp.CleanType()),
 		"-4", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
@@ -360,6 +365,17 @@ func (g *bsaPlugin) pipeline() error {
 	g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 	if err = cmd.Run(); err != nil {
 		g.logger.Error("dna pipeline fail", zap.Error(err))
+		return err
+	}
+	fai, err := g.getfai()
+	if err != nil {
+		return err
+	}
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("cat %s | cut -f1,2 > /data/input/references/size.txt", fai))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
 	return nil

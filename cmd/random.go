@@ -8,6 +8,9 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	tp string
+)
 var randomCmd = &cobra.Command{
 	Use:   "random",
 	Short: "gene-analyse plugin",
@@ -17,10 +20,14 @@ var randomCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		l, _ := utils.NewZapLogger(&utils.Opt{LogOutput: utils.CONSOLE})
-		random := build.NewRandomPlugin(l)
+		random := build.NewRandomPlugin(tp, l)
 		err := random.Build(context.Background())
 		if err != nil {
 			l.Error("data build ", zap.Error(err))
 		}
 	},
+}
+
+func init() {
+	randomCmd.Flags().StringVarP(&tp, "type", "t", "six", "default is six(6G) or eight(8G)")
 }

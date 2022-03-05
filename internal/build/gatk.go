@@ -77,6 +77,25 @@ func (g *gatkPlugin) check() {
 			g.logger.Warn("fastp out", zap.Strings("files", names))
 		}
 	}
+	if b := utils.IsExist(types.FASTP_QC_OUT); !b {
+		cmd := exec.Command("mkdir", "-p", types.FASTP_QC_OUT)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("create clean dir", zap.Error(err))
+		}
+	} else {
+		files, err := ioutil.ReadDir(types.FASTP_QC_OUT)
+		if err != nil {
+			g.logger.Error("existed clean dir", zap.Error(err))
+		} else {
+			names := make([]string, 0)
+			for _, v := range files {
+				names = append(names, v.Name())
+			}
+			g.logger.Warn("fastqc out", zap.Strings("files", names))
+		}
+	}
 	if b := utils.IsExist(types.REPORT_OUT); !b {
 		cmd := exec.Command("mkdir", "-p", types.REPORT_OUT)
 		cmd.Stdout = os.Stdout
@@ -219,6 +238,29 @@ func (g *gatkPlugin) Build(ctx context.Context) error {
 			}
 		}()
 		wg.Wait()
+		if b := utils.IsExist(types.FASTP_OUT); b {
+			if b := utils.IsExist(types.HISAT2_OUT); !b || (b && utils.Files(types.HISAT2_OUT) == 0) {
+				if err := g.fastqc(types.FASTP_OUT); err != nil {
+					g.logger.Error("clean -> fastqc data fail", zap.Error(err))
+					return err
+				}
+			} else {
+				g.logger.Info("fastqc data has build")
+				files, err := ioutil.ReadDir(types.FASTP_OUT)
+				if err != nil {
+					g.logger.Error("read fastqc data fail", zap.Error(err))
+				} else {
+					names := make([]string, 0)
+					for _, v := range files {
+						names = append(names, v.Name())
+					}
+					g.logger.Warn("fastqc data ", zap.Strings("files", names))
+				}
+			}
+		} else {
+			g.logger.Error("fastqc input not existed")
+		}
+
 		//clean -> sam
 		if b := utils.IsExist(types.FASTP_OUT); b {
 			if b := utils.IsExist(types.HISAT2_OUT); !b || (b && utils.Files(types.HISAT2_OUT) == 0) {
@@ -444,7 +486,7 @@ func (g *gatkPlugin) bwa(dir string) error {
 				zap.String("target1", fmt.Sprintf("%s%s", temp, tp.Type())),
 				zap.String("target2", fmt.Sprintf("%s%s", temp, strings.Replace(tp.Type(), "1", "2", -1))))
 			cmd := exec.Command("bwa", "mem", "-t", thread, "-R",
-				fmt.Sprintf(`@RG\tID:foo_lane\tPL:illumina\tSM:%s`, temp),
+				fmt.Sprintf(`@RG\tID:group_%s\tLB:library_%s\tPL:illumina\tSM:sample_%s`, temp, temp, temp),
 				faFile, fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, tp.CleanType()),
 				fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(tp.CleanType(), "1", "2", -1)),
 				"-o", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp))
@@ -511,7 +553,17 @@ func (g *gatkPlugin) sort(dir string) error {
 					}
 					cmd = exec.Command("samtools", "index", "-@",
 						"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
-					//cmd.Stdout = os.Stdout
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+					if err = cmd.Run(); err != nil {
+						g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+						return
+					}
+					cmd = exec.Command("samtools", "flagstat",
+						fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp),
+						fmt.Sprintf(">%s/%s.report", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 					if err = cmd.Run(); err != nil {
@@ -612,6 +664,90 @@ func (g *gatkPlugin) buildVCF() error {
 			}
 		}
 		wg.Wait()
+	}
+	return nil
+}
+func (g *gatkPlugin) fastqc(dir string) error {
+	//fastqc -t 12 -o out_path sample1_1.fq sample1_2.fq
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	//bar := u.bar.NewBar("clean.fastq --> sam",len(files) / 2 )
+	//todo 内存占用较大（单个5G）
+	pool, err := ants.NewPool(4)
+	if err != nil {
+		return err
+	}
+	var (
+		wg sync.WaitGroup
+		//flag bool
+		tp types.SampleType
+	)
+	for _, v := range files {
+		if g.tp == 0 {
+			switch {
+			case strings.HasSuffix(v.Name(), types.R1SampleClean):
+				tp = types.SampleType(1)
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanEx):
+				tp = types.SampleType(2)
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanFq):
+				tp = types.SampleType(3)
+			case strings.HasSuffix(v.Name(), types.R1SampleCleanFqEx):
+				tp = types.SampleType(4)
+			default:
+				g.logger.Info("file name", zap.String("name", v.Name()))
+				continue
+			}
+			g.tp = tp
+		} else {
+			tp = g.tp
+		}
+		name := v.Name()
+		g.logger.Info("start fastqc", zap.String("name", name), zap.String("tp", g.tp.CleanType()))
+		wg.Add(1)
+		if err = pool.Submit(func() {
+			defer func() {
+				//bar.Add(1)
+				wg.Done()
+				//log.Println(name, "build map file success", types.HISAT2_OUT, name)
+			}()
+			if strings.HasSuffix(name, g.tp.CleanType()) {
+				temp := strings.TrimSuffix(name, g.tp.CleanType())
+				cmd := exec.Command("fastqc", "-t", "4",
+					"-o", types.FASTP_QC_OUT,
+					fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, g.tp.CleanType()),
+					fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(g.tp.CleanType(), "1", "2", -1)))
+				//cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err = cmd.Run(); err != nil {
+					g.logger.Error("fastqc run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}
+		}); err != nil {
+			g.logger.Error("hisat2 submit task run fail", zap.Error(err))
+		}
+	}
+	if tp == 0 {
+		g.logger.Error("please check raw data(fastqc)")
+		return errors.New("please check clean data")
+	}
+	g.logger.Info("clean -> hisat2 waiting")
+	wg.Wait()
+	g.logger.Info("clean -> hisat2 finished")
+	//解压
+	files, err = ioutil.ReadDir(types.FASTP_QC_OUT)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".zip") {
+			err = utils.UnZip(fmt.Sprintf("%s/%s", types.FASTP_QC_OUT, v.Name()), types.FASTP_QC_OUT)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

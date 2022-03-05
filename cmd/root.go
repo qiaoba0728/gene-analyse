@@ -54,6 +54,7 @@ func init() {
 	rootCmd.AddCommand(gatkCmd)
 	rootCmd.AddCommand(reportCmd)
 	rootCmd.AddCommand(randomCmd)
+	rootCmd.AddCommand(covertCmd)
 	cobra.OnInitialize(onInitialize)
 	//flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 } //
