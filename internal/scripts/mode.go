@@ -130,6 +130,7 @@ png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"),width=800,height=800)
 p
 dev.off()
 `
+
 	MODE_KEGG_MOUSE = `
 args=commandArgs(T)
 print(args[1])
@@ -139,7 +140,7 @@ library(ggplot2)
 library(clusterProfiler)
 glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
 mapdt <- bitr(glist, fromType = "SYMBOL",toType = c("ENTREZID","ENSEMBL","SYMBOL"),OrgDb = %s)
-data=enrichKEGG(mapdt$ENTREZID,organism = "mmu",keyType="kegg",,pvalueCutoff = %f,pAdjustMethod = "BH",qvalueCutoff = 0.1)
+data=enrichKEGG(mapdt$ENTREZID,organism = %s,keyType="kegg",,pvalueCutoff = %f,pAdjustMethod = "BH",qvalueCutoff = 0.1)
 
 keggData=as.data.frame(data)
 head(keggData)

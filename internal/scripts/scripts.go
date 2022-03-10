@@ -43,7 +43,7 @@ head(counts)
 #counts = counts[-1,]
 head(counts)
 
-
+counts = counts[-nrow(counts),]
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 
 names(counts)

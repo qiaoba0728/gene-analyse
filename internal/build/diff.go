@@ -75,11 +75,23 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("mode_kegg_mouse.R", fmt.Sprintf(scripts.MODE_KEGG_MOUSE,
-		geneDB, geneDB, g.config.Factor))
-	if err != nil {
-		g.logger.Error("cmd run fail", zap.Error(err))
-		return err
+	// 小鼠
+	if geneDB == "Mm" {
+		err = utils.WriteFile("mode_kegg_mouse.R", fmt.Sprintf(scripts.MODE_KEGG_MOUSE,
+			geneDB, geneDB, "mmu", g.config.Factor))
+		if err != nil {
+			g.logger.Error("cmd run fail", zap.Error(err))
+			return err
+		}
+	}
+	// 人
+	if geneDB == "Hs" {
+		err = utils.WriteFile("mode_kegg_mouse.R", fmt.Sprintf(scripts.MODE_KEGG_MOUSE,
+			geneDB, geneDB, "hsa", g.config.Factor))
+		if err != nil {
+			g.logger.Error("cmd run fail", zap.Error(err))
+			return err
+		}
 	}
 	//err = utils.WriteFile("insertsect_go.R", scripts.INSERTSECT)
 	//if err != nil {
@@ -181,7 +193,7 @@ func (g *genePlugin) Build(ctx context.Context) error {
 			//	g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
 			//	return err
 			//}
-			if g.config.GeneDB != "Mm" {
+			if g.config.GeneDB != "Mm" && g.config.GeneDB != "Hs" {
 				cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg_ex.R"),
 					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
 					fmt.Sprintf("%s/%s", v.Output, v.Name),
@@ -194,6 +206,7 @@ func (g *genePlugin) Build(ctx context.Context) error {
 					continue
 				}
 			} else {
+				//Mm Hs
 				cmd = exec.Command("Rscript", path.Join(wd, "script", "mode_kegg_mouse.R"),
 					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
 					fmt.Sprintf("%s/%s", v.Output, v.Name))

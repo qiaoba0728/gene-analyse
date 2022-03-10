@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -43,16 +44,16 @@ func (c *covert) Build(ctx context.Context) error {
 		zap.String("address", c.address),
 		zap.String("order", c.order),
 		zap.String("name", c.name))
-	//wd,_ := os.Getwd()
+	wd, _ := os.Getwd()
 	err := c.buildBak()
 	if err != nil {
 		return err
 	}
-	//err = os.Rename(path.Join(wd,c.contract,index),path.Join(wd,c.contract,oldIndex))
-	//if err != nil {
-	//	return err
-	//}
-	//utils.WritePngFile(path.Join(wd,c.contract,"src","images","logo.png"),logo)
+	err = os.Rename(path.Join(wd, c.contract, index), path.Join(wd, c.contract, oldIndex))
+	if err != nil {
+		return err
+	}
+	utils.WritePngFile(path.Join(wd, c.contract, "src", "images", "logo.png"), logo)
 	return nil
 }
 func (c *covert) buildBak() error {
@@ -90,6 +91,7 @@ func (c *covert) buildBak() error {
 			return err
 		}
 		newLine = string(line)
+		c.logger.Info("exec before", zap.String("line", newLine))
 		if strings.Contains(newLine, "贺兴") {
 			newLine = strings.Replace(newLine, "贺兴", c.name, -1)
 		}
