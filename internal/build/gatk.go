@@ -560,10 +560,15 @@ func (g *gatkPlugin) sort(dir string) error {
 						g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
 						return
 					}
+					f, err := os.Create(fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
+					if err != nil {
+						g.logger.Error("samtools create fail", zap.Error(err))
+						return
+					}
+					defer f.Close()
 					cmd = exec.Command("samtools", "flagstat",
-						fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp),
-						fmt.Sprintf(">%s/%s.report", types.REPORT_OUT, temp))
-					cmd.Stdout = os.Stdout
+						fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+					cmd.Stdout = f
 					cmd.Stderr = os.Stderr
 					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 					if err = cmd.Run(); err != nil {

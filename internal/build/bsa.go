@@ -378,6 +378,20 @@ func (g *bsaPlugin) pipeline() error {
 		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("./extract.sh %s", types.BSA_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	//cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("./extract.sh %s",types.BSA_OUT))
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	//if err = cmd.Run(); err != nil {
+	//	g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+	//	return err
+	//}
 	return nil
 }
 

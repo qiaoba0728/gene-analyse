@@ -4,9 +4,14 @@ import (
 	"context"
 	"github.com/qiaoba0728/gene-analyse/internal/build"
 	"github.com/qiaoba0728/gene-analyse/internal/conf"
+	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"os"
+	"os/exec"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -38,12 +43,36 @@ var bsaCmd = &cobra.Command{
 			} else {
 				l.Info("wait bsa rna finished......")
 			}
+		} else if len(args) == 1 && args[0] == "report" {
+			cmd := exec.Command("/bin/sh", "-x", "/bsa/coverage_extract.sh", types.REPORT_OUT)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			l.Named("report").Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err := cmd.Run(); err != nil {
+				l.Named("coverage_extract").Error("cmd run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				return
+			}
 		} else {
 			plugin := build.NewBsaPlugin(l.Named("DNA"))
 			if err = plugin.Build(context.Background()); err != nil {
 				l.Error("data bsa build ", zap.Error(err))
 			} else {
 				l.Info("wait bsa dna finished......")
+			}
+		}
+		l.Info("build finished waiting exec cmd")
+		l.Info("./gene-analyse bsa report")
+		// signal
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+		for {
+			s := <-c
+			switch s {
+			case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+				return
+			case syscall.SIGHUP:
+			default:
+				return
 			}
 		}
 		//email := common.NewQQEmail(l.Named("email"))

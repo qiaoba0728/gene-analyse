@@ -373,7 +373,7 @@ func (r *reportPlugin) geneDepthCoverageEx() error {
 				}()
 				temp := strings.TrimPrefix(name, "bsa_hisat2_")
 				if !utils.IsExist(fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp)) {
-					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
+					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err = cmd.Run(); err != nil {
@@ -480,49 +480,50 @@ func (r *reportPlugin) readQuality(dir string) error {
 	wg.Wait()
 	return nil
 }
-func (r *reportPlugin) readQualityEx() error {
-	var (
-		err  error
-		pool *ants.Pool
-		wg   sync.WaitGroup
-	)
-	pool, err = ants.NewPool(2)
-	if err != nil {
-		return err
-	}
-	wg.Add(2)
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("read_quality.py", "-i", bam1,
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
-	if err != nil {
-		return err
-	}
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("read_quality.py", "-i", bam2,
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
-	wg.Wait()
-	return err
-}
+
+//func (r *reportPlugin) readQualityEx() error {
+//	var (
+//		err  error
+//		pool *ants.Pool
+//		wg   sync.WaitGroup
+//	)
+//	pool, err = ants.NewPool(2)
+//	if err != nil {
+//		return err
+//	}
+//	wg.Add(2)
+//	err = pool.Submit(func() {
+//		defer func() {
+//			wg.Done()
+//		}()
+//		cmd := exec.Command("read_quality.py", "-i", bam1,
+//			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
+//		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+//		cmd.Stdout = os.Stdout
+//		cmd.Stderr = os.Stderr
+//		if err = cmd.Run(); err != nil {
+//			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+//		}
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	err = pool.Submit(func() {
+//		defer func() {
+//			wg.Done()
+//		}()
+//		cmd := exec.Command("read_quality.py", "-i", bam2,
+//			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
+//		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+//		cmd.Stdout = os.Stdout
+//		cmd.Stderr = os.Stderr
+//		if err = cmd.Run(); err != nil {
+//			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+//		}
+//	})
+//	wg.Wait()
+//	return err
+//}
 func (r *reportPlugin) rpkmSaturation(dir string) error {
 	var (
 		err   error
