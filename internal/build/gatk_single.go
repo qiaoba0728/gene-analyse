@@ -456,3 +456,112 @@ func (g *gatkSingleResultPlugin) result() error {
 	wg.Wait()
 	return nil
 }
+func (g *gatkResultPlugin) singleReport() error {
+	var (
+		err   error
+		pool  *ants.Pool
+		files []os.FileInfo
+		wg    sync.WaitGroup
+	)
+	pool, err = ants.NewPool(8)
+	if err != nil {
+		return err
+	}
+	//bar := e.bar.NewBar("featurecounts",len(files))
+	files, err = ioutil.ReadDir(types.SINGLE_OUT)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".indel.filter.vcf.gz") {
+			wg.Add(1)
+			source := v.Name()
+			temp := strings.TrimSuffix(v.Name(), ".indel.filter.vcf.gz")
+			if err := pool.Submit(func() {
+				defer func() {
+					wg.Done()
+					g.logger.Info("build report success")
+				}()
+				cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s .", types.SINGLE_OUT, source))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s/%s", types.SINGLE_OUT, source))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("python", "gatk_indel.py", fmt.Sprintf("%s/%s", types.SINGLE_OUT, source), fmt.Sprintf("%s/%s_indel.report", types.REPORT_OUT, temp))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+				cmd = exec.Command("bin/bash", "-c", "rm", "-rf", source)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+			}); err != nil {
+				g.logger.Error("run submmit fail", zap.Error(err))
+			}
+		}
+		if strings.HasSuffix(v.Name(), ".snp.filter.vcf.gz") {
+			wg.Add(1)
+			source := v.Name()
+			temp := strings.TrimSuffix(v.Name(), ".snp.filter.vcf.gz")
+			if err := pool.Submit(func() {
+				defer func() {
+					wg.Done()
+					g.logger.Info("build report success")
+				}()
+				cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s .", types.SINGLE_OUT, source))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s/%s", types.SINGLE_OUT, source))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("python", "gatk_snp.py", fmt.Sprintf("%s/%s", types.SINGLE_OUT, source), fmt.Sprintf("%s/%s_snp.report", types.REPORT_OUT, temp))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+				cmd = exec.Command("bin/bash", "-c", "rm", "-rf", source)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+			}); err != nil {
+				g.logger.Error("run submmit fail", zap.Error(err))
+			}
+		}
+	}
+	wg.Wait()
+	return nil
+}

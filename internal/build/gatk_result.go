@@ -399,6 +399,7 @@ func (g *gatkResultPlugin) index() error {
 	}
 	return nil
 }
+
 func (g *gatkResultPlugin) result() error {
 	var (
 		err   error
@@ -507,5 +508,71 @@ func (g *gatkResultPlugin) result() error {
 		}
 	}
 	wg.Wait()
+	return nil
+}
+func (g *gatkResultPlugin) report() error {
+	cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.indel.filter.vcf.gz . ", types.GATK_G_OUT, "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s.indel.filter.vcf.gz", "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.snp.filter.vcf.gz .", types.GATK_G_OUT, "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s.snp.filter.vcf.gz", "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	var wg sync.WaitGroup
+	// snp
+	wg.Add(1)
+	go func() {
+		defer func() {
+			wg.Done()
+		}()
+		cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/snp.report", types.GATK_G_OUT))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		}
+	}()
+	// indel
+	wg.Add(1)
+	go func() {
+		defer func() {
+			wg.Done()
+		}()
+		cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/indel.report", types.GATK_G_OUT))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+		if err := cmd.Run(); err != nil {
+			g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+		}
+	}()
+	wg.Wait()
+	g.logger.Info("run build static data")
 	return nil
 }

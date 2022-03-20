@@ -292,6 +292,14 @@ func (g *gatkPlugin) Build(ctx context.Context) error {
 					return err
 				} else {
 					g.logger.Info("create hisat2 sorted data success")
+					g.logger.Info("ready to delele hisat2 data")
+					cmd := exec.Command("rm", "-rf", types.HISAT2_OUT)
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					g.logger.Info("ready to delele hisat2 data", zap.String("cmd", cmd.String()))
+					if err := cmd.Run(); err != nil {
+						g.logger.Error("delele hisat2 fail", zap.Error(err))
+					}
 				}
 			}
 		} else {
@@ -636,6 +644,7 @@ func (g *gatkPlugin) buildVCF() error {
 						"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.GATK_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
+					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 					if err = cmd.Run(); err != nil {
 						g.logger.Error("run gatk MarkDuplicates", zap.Error(err), zap.String("cmd", cmd.String()))
 						return
@@ -658,6 +667,7 @@ func (g *gatkPlugin) buildVCF() error {
 						"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp))
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
+					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 					if err = cmd.Run(); err != nil {
 						g.logger.Error("run gatk HaplotypeCaller bam", zap.Error(err), zap.String("cmd", cmd.String()))
 						return
@@ -709,7 +719,7 @@ func (g *gatkPlugin) fastqc(dir string) error {
 			tp = g.tp
 		}
 		name := v.Name()
-		g.logger.Info("start fastqc", zap.String("name", name), zap.String("tp", g.tp.CleanType()))
+		g.logger.Info("start cmd fastqc", zap.String("name", name), zap.String("tp", g.tp.CleanType()))
 		wg.Add(1)
 		if err = pool.Submit(func() {
 			defer func() {
@@ -719,11 +729,11 @@ func (g *gatkPlugin) fastqc(dir string) error {
 			}()
 			if strings.HasSuffix(name, g.tp.CleanType()) {
 				temp := strings.TrimSuffix(name, g.tp.CleanType())
-				cmd := exec.Command("fastqc", "-t", "4",
+				cmd := exec.Command("fastqc", "-t", "8",
 					"-o", types.FASTP_QC_OUT,
 					fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, g.tp.CleanType()),
 					fmt.Sprintf("%s/%s%s", types.FASTP_OUT, temp, strings.Replace(g.tp.CleanType(), "1", "2", -1)))
-				//cmd.Stdout = os.Stdout
+				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 				if err = cmd.Run(); err != nil {
