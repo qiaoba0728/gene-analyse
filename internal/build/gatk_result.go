@@ -285,6 +285,9 @@ func (g *gatkResultPlugin) Build(ctx context.Context) error {
 	if err := g.geneDepthCoverage(types.SORTED_OUT); err != nil {
 		return err
 	}
+	if err := g.report(); err != nil {
+		return err
+	}
 	g.logger.Info("gatk build finished")
 	return nil
 }
@@ -511,7 +514,9 @@ func (g *gatkResultPlugin) result() error {
 	return nil
 }
 func (g *gatkResultPlugin) report() error {
-	cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.indel.filter.vcf.gz . ", types.GATK_G_OUT, "merge"))
+	//cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.indel.filter.vcf.gz . ", types.GATK_G_OUT, "merge"))
+	cmd := exec.Command("cp", "-r", fmt.Sprintf("%s/%s.indel.filter.vcf.gz", types.GATK_G_OUT, "merge"),
+		fmt.Sprintf("%s.indel.filter.vcf.gz", "merge"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -519,7 +524,25 @@ func (g *gatkResultPlugin) report() error {
 		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s.indel.filter.vcf.gz", "merge"))
+	cmd = exec.Command("gunzip", fmt.Sprintf("%s.indel.filter.vcf.gz", "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cmd", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	//cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.snp.filter.vcf.gz .", types.GATK_G_OUT, "merge"))
+	cmd = exec.Command("cp", "-r", fmt.Sprintf("%s/%s.snp.filter.vcf.gz", types.GATK_G_OUT, "merge"),
+		fmt.Sprintf("%s.snp.filter.vcf.gz", "merge"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("run cmd", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("gunzip", fmt.Sprintf("%s.snp.filter.vcf.gz", "merge"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -527,52 +550,57 @@ func (g *gatkResultPlugin) report() error {
 		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s.snp.filter.vcf.gz .", types.GATK_G_OUT, "merge"))
+
+	// python gatk_snp.py merge.snp.filter.vcf /data/output/gatk_vcf_result/snp.report
+	cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/snp.report", types.GATK_G_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
 	if err := cmd.Run(); err != nil {
 		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-		return err
 	}
-	cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s.snp.filter.vcf.gz", "merge"))
+
+	// python gatk_indel.py merge.indel.filter.vcf /data/output/gatk_vcf_result/indel.report
+	cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/indel.report", types.GATK_G_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
 	if err := cmd.Run(); err != nil {
-		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-		return err
+		g.logger.Error("run python", zap.Error(err), zap.String("cmd", cmd.String()))
 	}
-	var wg sync.WaitGroup
-	// snp
-	wg.Add(1)
-	go func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/snp.report", types.GATK_G_OUT))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	}()
-	// indel
-	wg.Add(1)
-	go func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/indel.report", types.GATK_G_OUT))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	}()
-	wg.Wait()
-	g.logger.Info("run build static data")
+
+	//var wg sync.WaitGroup
+	//// snp
+	//wg.Add(1)
+	//go func() {
+	//	defer func() {
+	//		wg.Done()
+	//	}()
+	//	// python gatk_snp.py merge.snp.filter.vcf /data/output/gatk_vcf_result/snp.report
+	//	cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/snp.report", types.GATK_G_OUT))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
+	//	}
+	//}()
+	//// indel
+	//wg.Add(1)
+	//go func() {
+	//	defer func() {
+	//		wg.Done()
+	//	}()
+	//	// python gatk_indel.py merge.indel.filter.vcf /data/output/gatk_vcf_result/indel.report
+	//	cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/indel.report", types.GATK_G_OUT))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run python", zap.Error(err), zap.String("cmd", cmd.String()))
+	//	}
+	//}()
+	//wg.Wait()
+	g.logger.Info("run build snp and indel data")
 	return nil
 }

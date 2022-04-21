@@ -209,14 +209,14 @@ func (g *gatkSingleResultPlugin) buildBed12() error {
 	if gtf, err = g.getGTF(); err != nil {
 		return err
 	}
-	f, err := os.Create(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
-	if err != nil {
-		g.logger.Error("read_distribution create fail", zap.Error(err))
-		return err
-	}
-	defer f.Close()
-	cmd := exec.Command("/work/gtf2bed12.perl", gtf)
-	cmd.Stdout = f
+	//f, err := os.Create(fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+	//if err != nil {
+	//	g.logger.Error("read_distribution create fail", zap.Error(err))
+	//	return err
+	//}
+	//defer f.Close()
+	cmd := exec.Command("/work/gtfToGenePred", gtf, fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run gtf to bed", zap.String("cmd", cmd.String()))
 	if err = cmd.Run(); err != nil {
@@ -244,9 +244,9 @@ func (g *gatkSingleResultPlugin) Build(ctx context.Context) error {
 	if err := g.result(); err != nil {
 		return err
 	}
-	//if err := g.geneDepthCoverage(types.SORTED_OUT); err != nil {
-	//	return err
-	//}
+	if err := g.singleReport(); err != nil {
+		return err
+	}
 	g.logger.Info("gatk build finished")
 	return nil
 }
@@ -456,7 +456,7 @@ func (g *gatkSingleResultPlugin) result() error {
 	wg.Wait()
 	return nil
 }
-func (g *gatkResultPlugin) singleReport() error {
+func (g *gatkSingleResultPlugin) singleReport() error {
 	var (
 		err   error
 		pool  *ants.Pool
@@ -468,7 +468,7 @@ func (g *gatkResultPlugin) singleReport() error {
 		return err
 	}
 	//bar := e.bar.NewBar("featurecounts",len(files))
-	files, err = ioutil.ReadDir(types.SINGLE_OUT)
+	files, err = ioutil.ReadDir(types.GATK_SINGLE_OUT)
 	if err != nil {
 		return err
 	}
@@ -482,7 +482,8 @@ func (g *gatkResultPlugin) singleReport() error {
 					wg.Done()
 					g.logger.Info("build report success")
 				}()
-				cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s .", types.SINGLE_OUT, source))
+				cmd := exec.Command("cp", "-r", fmt.Sprintf("%s/%s", types.GATK_SINGLE_OUT, source),
+					source)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -490,7 +491,7 @@ func (g *gatkResultPlugin) singleReport() error {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 					return
 				}
-				cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s/%s", types.SINGLE_OUT, source))
+				cmd = exec.Command("gunzip", source)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -498,20 +499,12 @@ func (g *gatkResultPlugin) singleReport() error {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 					return
 				}
-				cmd = exec.Command("python", "gatk_indel.py", fmt.Sprintf("%s/%s", types.SINGLE_OUT, source), fmt.Sprintf("%s/%s_indel.report", types.REPORT_OUT, temp))
+				cmd = exec.Command("python", "gatk_single_indel.py", fmt.Sprintf("/%s/%s.indel.filter.vcf", "work", temp), fmt.Sprintf("%s/%s_indel.report", types.REPORT_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
 				if err := cmd.Run(); err != nil {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-				}
-				cmd = exec.Command("bin/bash", "-c", "rm", "-rf", source)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
-				if err := cmd.Run(); err != nil {
-					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-					return
 				}
 			}); err != nil {
 				g.logger.Error("run submmit fail", zap.Error(err))
@@ -526,7 +519,8 @@ func (g *gatkResultPlugin) singleReport() error {
 					wg.Done()
 					g.logger.Info("build report success")
 				}()
-				cmd := exec.Command("bin/bash", "-c", fmt.Sprintf("cp %s/%s .", types.SINGLE_OUT, source))
+				cmd := exec.Command("cp", "-r", fmt.Sprintf("%s/%s", types.GATK_SINGLE_OUT, source),
+					source)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -534,7 +528,7 @@ func (g *gatkResultPlugin) singleReport() error {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 					return
 				}
-				cmd = exec.Command("bin/bash", "-c", fmt.Sprintf("gunzip %s/%s", types.SINGLE_OUT, source))
+				cmd = exec.Command("gunzip", source)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -542,20 +536,12 @@ func (g *gatkResultPlugin) singleReport() error {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
 					return
 				}
-				cmd = exec.Command("python", "gatk_snp.py", fmt.Sprintf("%s/%s", types.SINGLE_OUT, source), fmt.Sprintf("%s/%s_snp.report", types.REPORT_OUT, temp))
+				cmd = exec.Command("python", "gatk_single_snp.py", fmt.Sprintf("/%s/%s.snp.filter.vcf", "work", temp), fmt.Sprintf("%s/%s_snp.report", types.REPORT_OUT, temp))
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
 				if err := cmd.Run(); err != nil {
 					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-				}
-				cmd = exec.Command("bin/bash", "-c", "rm", "-rf", source)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
-				if err := cmd.Run(); err != nil {
-					g.logger.Error("run cp", zap.Error(err), zap.String("cmd", cmd.String()))
-					return
 				}
 			}); err != nil {
 				g.logger.Error("run submmit fail", zap.Error(err))

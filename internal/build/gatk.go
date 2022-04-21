@@ -504,6 +504,58 @@ func (g *gatkPlugin) bwa(dir string) error {
 			if err = cmd.Run(); err != nil {
 				g.logger.Error("create bwa file", zap.Error(err), zap.String("cmd", cmd.String()))
 			}
+
+			g.logger.Info("sam -> bam", zap.String("source", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp)), zap.String("target", fmt.Sprintf("%s.bam", temp)))
+			cmd = exec.Command("samtools", "view",
+				"-b", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp),
+				"-o", fmt.Sprintf("%s/%s.bam", types.SORTED_OUT, temp))
+			//cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				g.logger.Error("samtools run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				return
+			}
+			cmd = exec.Command("samtools", "sort", "-@",
+				"4", fmt.Sprintf("%s/%s.bam", types.SORTED_OUT, temp),
+				"-o", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				g.logger.Error("samtools sorted run fail", zap.Error(err))
+			}
+			cmd = exec.Command("samtools", "index", "-@",
+				"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				return
+			}
+			f, err := os.Create(fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
+			if err != nil {
+				g.logger.Error("samtools create fail", zap.Error(err))
+				return
+			}
+			defer f.Close()
+			cmd = exec.Command("samtools", "flagstat",
+				fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+			cmd.Stdout = f
+			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err = cmd.Run(); err != nil {
+				g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				return
+			}
+			cmd = exec.Command("rm", "-rf", fmt.Sprintf("%s/%s.sam", types.HISAT2_OUT, temp))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			g.logger.Info("ready to delele hisat2 data", zap.String("cmd", cmd.String()))
+			if err := cmd.Run(); err != nil {
+				g.logger.Error("delele hisat2 fail", zap.Error(err))
+			}
 		}); err != nil {
 			g.logger.Error("task submit fail", zap.Error(err))
 		}
@@ -591,7 +643,7 @@ func (g *gatkPlugin) sort(dir string) error {
 		g.logger.Info("sam -> bam waiting")
 		wg.Wait()
 	} else {
-		g.logger.Info("create bam success")
+		g.logger.Info("bam is existed,create bam success")
 	}
 	return nil
 }
