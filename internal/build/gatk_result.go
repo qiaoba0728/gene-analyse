@@ -420,7 +420,7 @@ func (g *gatkResultPlugin) result() error {
 	if err != nil {
 		return err
 	}
-	bar := g.bar.NewBar("vcf -> result", len(files))
+	//bar := g.bar.NewBar("vcf -> result", len(files))
 	for _, v := range files {
 		if strings.HasSuffix(v.Name(), ".vcf.gz") {
 			wg.Add(1)
@@ -431,7 +431,7 @@ func (g *gatkResultPlugin) result() error {
 				wgVCF.Add(2)
 				temp := strings.TrimSuffix(name, ".vcf.gz")
 				defer func() {
-					bar.Add(1)
+					//bar.Add(1)
 					wg.Done()
 					g.logger.Info("build gatk file success", zap.String("names", name))
 				}()

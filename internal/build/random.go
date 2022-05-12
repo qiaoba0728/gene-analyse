@@ -68,6 +68,8 @@ func (r *randomPlugin) buildItem() []string {
 		items = utils.RandFloats(41000000, 53000000, 1)
 	case eight:
 		items = utils.RandFloats(54000000, 70000000, 1)
+	default:
+		items = utils.RandFloats(108000000, 140000000, 1)
 	}
 	temp := int(items[0])
 	if temp%2 != 0 {
