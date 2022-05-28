@@ -44,7 +44,15 @@ var bsaCmd = &cobra.Command{
 				l.Info("wait bsa rna finished......")
 			}
 		} else if len(args) == 1 && args[0] == "report" {
-			cmd := exec.Command("/bin/sh", "-x", "/bsa/coverage_extract.sh", types.REPORT_OUT)
+			cmd := exec.Command("bash", "-x", "/bsa/coverage_extract.sh", types.REPORT_OUT)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			l.Named("report").Info("cmd run ", zap.String("cmd", cmd.String()))
+			if err := cmd.Run(); err != nil {
+				l.Named("coverage_extract").Error("cmd run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+				return
+			}
+			cmd = exec.Command("bash", "-x", "/bsa/extract.sh", types.BSA_OUT)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			l.Named("report").Info("cmd run ", zap.String("cmd", cmd.String()))

@@ -29,5 +29,5 @@ var randomCmd = &cobra.Command{
 }
 
 func init() {
-	randomCmd.Flags().StringVarP(&tp, "type", "t", "six", "default is six(6G) or eight(8G)")
+	randomCmd.Flags().StringVarP(&tp, "type", "t", "320G", "default is six(6G) or eight(8G)")
 }

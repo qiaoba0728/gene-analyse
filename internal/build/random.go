@@ -12,9 +12,14 @@ import (
 )
 
 const (
-	max   = 1000
-	six   = "six"
-	eight = "eight"
+	max    = 1000
+	six    = "6G"
+	eight  = "8G"
+	ten    = "10G"
+	twel   = "12G"
+	fift   = "15G"
+	sixten = "16G"
+	twenty = "20G"
 )
 
 type config struct {
@@ -68,8 +73,18 @@ func (r *randomPlugin) buildItem() []string {
 		items = utils.RandFloats(41000000, 53000000, 1)
 	case eight:
 		items = utils.RandFloats(54000000, 70000000, 1)
+	case ten:
+		items = utils.RandFloats(68000000, 82000000, 1)
+	case twel:
+		items = utils.RandFloats(80000000, 100000000, 1)
+	case fift:
+		items = utils.RandFloats(100000000, 120000000, 1)
+	case sixten:
+		items = utils.RandFloats(108000000, 125000000, 1)
+	case twenty:
+		items = utils.RandFloats(135000000, 160000000, 1)
 	default:
-		items = utils.RandFloats(108000000, 140000000, 1)
+		items = utils.RandFloats(2160000000, 2500000000, 1)
 	}
 	temp := int(items[0])
 	if temp%2 != 0 {

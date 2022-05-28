@@ -552,7 +552,7 @@ func (g *gatkResultPlugin) report() error {
 	}
 
 	// python gatk_snp.py merge.snp.filter.vcf /data/output/gatk_vcf_result/snp.report
-	cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/snp.report", types.GATK_G_OUT))
+	cmd = exec.Command("python", "gatk_snp.py", "merge.snp.filter.vcf", fmt.Sprintf("%s/merge.snp.report", types.GATK_G_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
@@ -561,7 +561,7 @@ func (g *gatkResultPlugin) report() error {
 	}
 
 	// python gatk_indel.py merge.indel.filter.vcf /data/output/gatk_vcf_result/indel.report
-	cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/indel.report", types.GATK_G_OUT))
+	cmd = exec.Command("python", "gatk_indel.py", "merge.indel.filter.vcf", fmt.Sprintf("%s/merge.indel.report", types.GATK_G_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	g.logger.Info("run cmd", zap.String("cmd", cmd.String()))
