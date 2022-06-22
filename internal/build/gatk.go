@@ -292,14 +292,14 @@ func (g *gatkPlugin) Build(ctx context.Context) error {
 					return err
 				} else {
 					g.logger.Info("create hisat2 sorted data success")
-					g.logger.Info("ready to delele hisat2 data")
-					cmd := exec.Command("rm", "-rf", types.HISAT2_OUT)
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					g.logger.Info("ready to delele hisat2 data", zap.String("cmd", cmd.String()))
-					if err := cmd.Run(); err != nil {
-						g.logger.Error("delele hisat2 fail", zap.Error(err))
-					}
+					//g.logger.Info("ready to delele hisat2 data")
+					//cmd := exec.Command("rm", "-rf", types.HISAT2_OUT)
+					//cmd.Stdout = os.Stdout
+					//cmd.Stderr = os.Stderr
+					//g.logger.Info("ready to delele hisat2 data", zap.String("cmd", cmd.String()))
+					//if err := cmd.Run(); err != nil {
+					//	g.logger.Error("delele hisat2 fail", zap.Error(err))
+					//}
 				}
 			}
 		} else {
@@ -590,6 +590,14 @@ func (g *gatkPlugin) sort(dir string) error {
 						//bar.Add(1)
 						wg.Done()
 						g.logger.Info("build sam file success", zap.String("name", name))
+						g.logger.Info("ready to delele hisat2 data")
+						cmd := exec.Command("rm", "-rf", fmt.Sprintf("%s/%s", types.HISAT2_OUT, name))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("ready to delele hisat2 data", zap.String("cmd", cmd.String()))
+						if err := cmd.Run(); err != nil {
+							g.logger.Error("delele hisat2 fail", zap.Error(err))
+						}
 					}()
 					temp := strings.TrimSuffix(name, ".sam")
 					g.logger.Info("sam -> bam", zap.String("source", fmt.Sprintf("%s", name)), zap.String("target", fmt.Sprintf("%s.bam", temp)))

@@ -108,7 +108,7 @@ func (c *covert) buildBak() error {
 		newLine = string(line)
 		c.logger.Info("exec before", zap.String("line", newLine))
 		newLine = strings.Replace(newLine, "周梓良", "贺兴", -1)
-		newLine = strings.Replace(newLine, "派森诺生物科技有限公司", "武汉增强子科技有限公司", -1)
+		newLine = strings.Replace(newLine, "派森诺生物科技有限公司", "武汉增强子生物科技有限公司", -1)
 		if strings.Contains(newLine, `项目名称`) {
 			start := strings.Index(newLine, `<td><p align="center">项目名称 </p></td>`)
 			end := strings.Index(newLine, `<td><p align="center">订单编号 </p></td>`)
