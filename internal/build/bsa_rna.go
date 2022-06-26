@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/panjf2000/ants"
+	"github.com/qiaoba0728/gene-analyse/internal/common"
 	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"github.com/qiaoba0728/gene-analyse/internal/utils"
 	"go.uber.org/zap"
@@ -133,6 +134,10 @@ func (g *bsaRNAPlugin) Build(ctx context.Context) error {
 		if b := utils.IsExist(types.FASTP_OUT); !b || (b && utils.Files(types.FASTP_OUT) == 0) {
 			if err := g.fastq(types.INPUT); err != nil {
 				g.logger.Error("fastp -> clean", zap.Error(err))
+			} else {
+				if err = common.BuildReport(); err != nil {
+					g.logger.Error("fastp -> report", zap.Error(err))
+				}
 			}
 		} else {
 			g.logger.Info("clean has build")
@@ -267,9 +272,32 @@ func (g *bsaRNAPlugin) getfa() (string, error) {
 	}
 	return "", errors.New("fa not find")
 }
+func (g *bsaRNAPlugin) getfai() (string, error) {
+	files, err := ioutil.ReadDir(types.REFERENCES)
+	if err != nil {
+		return "", err
+	}
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".fai") {
+			return path.Join(types.REFERENCES, v.Name()), nil
+		}
+	}
+	return "", errors.New("fai not find")
+}
 func (g *bsaRNAPlugin) pipeline() error {
 	fa, err := g.getfa()
 	if err != nil {
+		return err
+	}
+	fai, err := g.getfai()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("cat %s | cut -f1,2 > /data/input/references/size.txt", fai))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
 	var (
@@ -323,14 +351,22 @@ func (g *bsaRNAPlugin) pipeline() error {
 		return err
 	}
 	g.logger.Info("get fa", zap.String("fa", fa))
-	cmd := exec.Command("RNA_BSA_pipeline.pl", "-f", fa,
+	cmd = exec.Command("RNA_BSA_pipeline.pl", "-f", fa,
 		"-b", types.BSA_GENOME_PREFIX,
 		"-3", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], g.tp.CleanType()),
 		"-4", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
 		"-5", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[1], g.tp.CleanType()),
 		"-6", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[1], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
-		"-a", thread, "-s", step, "-r", window, "-d", "0.4", "-1", g.samples[0], "-2", g.samples[1])
+		"-a", thread, "-s", step, "-r", window, "-d", "0.4", "-1", g.samples[0], "-2", g.samples[1],
+		"-7", "/data/output/bsa_result/")
 	g.logger.Info("dna pipeline", zap.String("cmd", cmd.String()))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("./extract.sh %s", types.BSA_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {

@@ -98,3 +98,16 @@ func TestDelSuf(t *testing.T) {
 	err := DelSuf("D://data", ".txt")
 	assert.Nil(t, err)
 }
+
+func TestRandFloats(t *testing.T) {
+	f := RandFloats(1000, 2000, 10)
+	for _, v := range f {
+		t.Log(v)
+	}
+}
+
+func TestBuildConfig(t *testing.T) {
+	params, err := BuildConfig("D://gene_count.csv", 3, "D://build.json")
+	assert.Nil(t, err)
+	t.Log(params)
+}

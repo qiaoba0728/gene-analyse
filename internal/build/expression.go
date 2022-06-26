@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -76,6 +77,14 @@ func (e *expressionPlugin) check() error {
 		return err
 	}
 	err = utils.WriteFile("heatmap_count.R", scripts.HEATMAP_REPORT)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteFile("heatmap_count_ex.R", scripts.HEATMAP_REPORT_EX)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteFile("diff_mfuzz.R", scripts.MFUZZ)
 	if err != nil {
 		return err
 	}
@@ -281,9 +290,10 @@ func (e *expressionPlugin) matrix() error {
 	wd, _ := os.Getwd()
 	input := path.Join(types.EXPRESSION_OUT, "gene.count")
 	output := path.Join(types.EXPRESSION_OUT, "gene_count.csv")
+	outputNumber := path.Join(types.EXPRESSION_OUT, "gene_count_number.csv")
 	outputXls := path.Join(types.EXPRESSION_OUT, "gene_count.xls")
 	cmd := exec.Command("Rscript", path.Join(wd, "script", "matrix_count.R"),
-		input, output, outputXls)
+		input, output, outputNumber, outputXls)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -312,7 +322,26 @@ func (e *expressionPlugin) matrix() error {
 		e.logger.Error("bash run ", zap.Error(err), zap.String("cmd", cmd.String()))
 		return err
 	}
-	return nil
+	// 从环境变量获取样本数目
+	internal := 3
+	temp := os.Getenv("INTERNAL")
+	if temp != "" {
+		internal, _ = strconv.Atoi(temp)
+	}
+	if params, err := utils.BuildConfig(path.Join(types.EXPRESSION_OUT, "gene_count.csv"), internal, "/data/build_config.json"); err != nil {
+		return err
+	} else {
+		// mfuzz
+		cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_mfuzz.R"),
+			strings.Join(params, ","))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		e.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+		if err := cmd.Run(); err != nil {
+			e.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+		}
+		return nil
+	}
 }
 func (e *expressionPlugin) buildReport() error {
 	wd, _ := os.Getwd()
@@ -351,6 +380,13 @@ func (e *expressionPlugin) buildReport() error {
 		return err
 	}
 	cmd = exec.Command("Rscript", path.Join(wd, "script", "heatmap_count.R"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		e.logger.Error("bash run ", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("Rscript", path.Join(wd, "script", "heatmap_count_ex.R"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

@@ -39,8 +39,8 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	wg.Add(4)
-	if utils.IsExist(types.SORTED_OUT) {
+	if utils.IsExist(types.SORTED_OUT) && !utils.IsExist(types.BSA_OUT) {
+		wg.Add(5)
 		go func() {
 			defer wg.Done()
 			if err = r.readDistribution(types.SORTED_OUT); err != nil {
@@ -53,12 +53,6 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneBodyCoverage", zap.Error(err))
 			}
 		}()
-		//go func() {
-		//	defer wg.Done()
-		//	if err = r.readQuality();err != nil {
-		//		r.logger.Error("readQuality",zap.Error(err))
-		//	}
-		//}()geneDepthCoverage
 		go func() {
 			defer wg.Done()
 			if err = r.rpkmSaturation(types.SORTED_OUT); err != nil {
@@ -71,7 +65,14 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneDepthCoverage", zap.Error(err))
 			}
 		}()
+		go func() {
+			defer wg.Done()
+			if err = r.stringTieHandle(types.SORTED_OUT); err != nil {
+				r.logger.Error("stringTieHandle", zap.Error(err))
+			}
+		}()
 	} else {
+		wg.Add(4)
 		go func() {
 			defer wg.Done()
 			if err = r.readDistributionEx(); err != nil {
@@ -84,12 +85,6 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 				r.logger.Error("geneBodyCoverage", zap.Error(err))
 			}
 		}()
-		//go func() {
-		//	defer wg.Done()
-		//	if err = r.readQuality();err != nil {
-		//		r.logger.Error("readQuality",zap.Error(err))
-		//	}
-		//}()
 		go func() {
 			defer wg.Done()
 			if err = r.rpkmSaturationEx(); err != nil {
@@ -98,7 +93,7 @@ func (r *reportPlugin) Build(ctx context.Context) error {
 		}()
 		go func() {
 			defer wg.Done()
-			if err = r.geneDepthCoverageEx(types.SORTED_OUT); err != nil {
+			if err = r.geneDepthCoverageEx(); err != nil {
 				r.logger.Error("geneDepthCoverageEx", zap.Error(err))
 			}
 		}()
@@ -147,6 +142,14 @@ func (r *reportPlugin) readDistribution(dir string) error {
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
 					r.logger.Error("read_distribution bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cat %s/%s_read_distribution.log | tail -n +5 | head -n 11 > %s/%s_read_distribution_plot.log", types.REPORT_OUT, temp, types.REPORT_OUT, temp))
+				r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
 				}
 			}); err != nil {
 				r.logger.Error("pool run fail", zap.Error(err))
@@ -158,56 +161,49 @@ func (r *reportPlugin) readDistribution(dir string) error {
 }
 func (r *reportPlugin) readDistributionEx() error {
 	var (
-		err  error
-		pool *ants.Pool
-		wg   sync.WaitGroup
+		err   error
+		files []os.FileInfo
+		wg    sync.WaitGroup
 	)
-	pool, err = ants.NewPool(2)
+	files, err = ioutil.ReadDir(types.BSA_OUT)
 	if err != nil {
 		return err
 	}
-	wg.Add(2)
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		f, err := os.Create(fmt.Sprintf("%s/%s_read_distribution.log", types.REPORT_OUT, "bam1"))
-		if err != nil {
-			r.logger.Error("read_distribution create fail", zap.Error(err))
-			return
+	for _, v := range files {
+		name := v.Name()
+		if v.IsDir() && strings.HasPrefix(name, "bsa_hisat2_") {
+			wg.Add(1)
+			go func() {
+				defer func() {
+					wg.Done()
+				}()
+				temp := strings.TrimPrefix(name, "bsa_hisat2_")
+				bam := path.Join(types.BSA_OUT, name, "acc.sorted.bam")
+				f, err := os.Create(fmt.Sprintf("%s/%s_read_distribution.log", types.REPORT_OUT, temp))
+				if err != nil {
+					r.logger.Error("read_distribution create fail", zap.Error(err))
+					return
+				}
+				defer f.Close()
+				cmd := exec.Command("read_distribution.py", "-i", bam,
+					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
+				r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+				cmd.Stdout = f
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return
+				}
+				cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cat %s/%s_read_distribution.log | tail -n +5 | head -n 11 > %s/%s_read_distribution_plot.log", types.REPORT_OUT, temp, types.REPORT_OUT, temp))
+				r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}()
 		}
-		defer f.Close()
-		cmd := exec.Command("read_distribution.py", "-i", bam1,
-			"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = f
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
-	if err != nil {
-		return err
 	}
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		f, err := os.Create(fmt.Sprintf("%s/%s_read_distribution.log", types.REPORT_OUT, "bam2"))
-		if err != nil {
-			r.logger.Error("read_distribution create fail", zap.Error(err))
-			return
-		}
-		defer f.Close()
-		cmd := exec.Command("read_distribution.py", "-i", bam2,
-			"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = f
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
 	wg.Wait()
 	return nil
 }
@@ -273,9 +269,21 @@ func (r *reportPlugin) geneBodyCoverage(dir string) error {
 func (r *reportPlugin) geneBodyCoverageEx() error {
 	var (
 		err    error
+		files  []os.FileInfo
 		inputs []string
 	)
-	inputs = []string{bam1, bam2}
+	files, err = ioutil.ReadDir(types.BSA_OUT)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		name := v.Name()
+		if v.IsDir() && strings.HasPrefix(name, "bsa_hisat2_") {
+			bam := path.Join(types.BSA_OUT, v.Name(), "acc.sorted.bam")
+			inputs = append(inputs, bam)
+		}
+	}
+	r.logger.Info("run input", zap.Strings("inputs", inputs))
 	cmd := exec.Command("geneBody_coverage.py", "-i", strings.Join(inputs, ","),
 		"-f", "png",
 		"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
@@ -322,7 +330,7 @@ func (r *reportPlugin) geneDepthCoverage(dir string) error {
 						r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
 					}
 				}
-				cmd := exec.Command("bamdst", "-p",
+				cmd := exec.Command("/work/bamdst", "-p",
 					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp),
 					input)
@@ -345,54 +353,47 @@ func (r *reportPlugin) geneDepthCoverage(dir string) error {
 	wg.Wait()
 	return nil
 }
-func (r *reportPlugin) geneDepthCoverageEx(dir string) error {
+func (r *reportPlugin) geneDepthCoverageEx() error {
 	var (
-		err error
+		err   error
+		files []os.FileInfo
+		wg    sync.WaitGroup
 	)
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1")) {
-			cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err = cmd.Run(); err != nil {
-				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
-			}
+	files, err = ioutil.ReadDir(types.BSA_OUT)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		name := v.Name()
+		if v.IsDir() && strings.HasPrefix(name, "bsa_hisat2_") {
+			wg.Add(1)
+			go func() {
+				defer func() {
+					wg.Done()
+				}()
+				temp := strings.TrimPrefix(name, "bsa_hisat2_")
+				if !utils.IsExist(fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp)) {
+					cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err = cmd.Run(); err != nil {
+						r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					}
+				}
+				bam := path.Join(types.BSA_OUT, name, "acc.sorted.bam")
+				cmd := exec.Command("/work/bamdst", "-p",
+					fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+					"-o", fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp),
+					bam)
+				r.logger.Info("run geneDepthCoverageEx", zap.String("cmd", cmd.String()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("build all geneDepthCoverageEx bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}()
 		}
-		cmd := exec.Command("bamdst", "-p",
-			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"),
-			bam1)
-		r.logger.Info("run geneDepthCoverageEx", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("build all geneDepthCoverageEx bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		if !utils.IsExist(fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2")) {
-			cmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err = cmd.Run(); err != nil {
-				r.logger.Error("mkdir bam", zap.Error(err), zap.String("cmd", cmd.String()))
-			}
-		}
-		cmd := exec.Command("bamdst", "-p",
-			fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"),
-			bam2)
-		r.logger.Info("run geneDepthCoverageEx", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("build all geneDepthCoverageEx bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	}()
+	}
 	wg.Wait()
 	return nil
 }
@@ -469,7 +470,7 @@ func (r *reportPlugin) readQuality(dir string) error {
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
-					r.logger.Error("geneBody_coverage bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
 				}
 			}); err != nil {
 				r.logger.Error("pool run fail", zap.Error(err))
@@ -479,49 +480,50 @@ func (r *reportPlugin) readQuality(dir string) error {
 	wg.Wait()
 	return nil
 }
-func (r *reportPlugin) readQualityEx() error {
-	var (
-		err  error
-		pool *ants.Pool
-		wg   sync.WaitGroup
-	)
-	pool, err = ants.NewPool(2)
-	if err != nil {
-		return err
-	}
-	wg.Add(2)
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("read_quality.py", "-i", bam1,
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
-	if err != nil {
-		return err
-	}
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("read_quality.py", "-i", bam2,
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
-		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
-	wg.Wait()
-	return err
-}
+
+//func (r *reportPlugin) readQualityEx() error {
+//	var (
+//		err  error
+//		pool *ants.Pool
+//		wg   sync.WaitGroup
+//	)
+//	pool, err = ants.NewPool(2)
+//	if err != nil {
+//		return err
+//	}
+//	wg.Add(2)
+//	err = pool.Submit(func() {
+//		defer func() {
+//			wg.Done()
+//		}()
+//		cmd := exec.Command("read_quality.py", "-i", bam1,
+//			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
+//		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+//		cmd.Stdout = os.Stdout
+//		cmd.Stderr = os.Stderr
+//		if err = cmd.Run(); err != nil {
+//			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+//		}
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	err = pool.Submit(func() {
+//		defer func() {
+//			wg.Done()
+//		}()
+//		cmd := exec.Command("read_quality.py", "-i", bam2,
+//			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
+//		r.logger.Info("run read_quality", zap.String("cmd", cmd.String()))
+//		cmd.Stdout = os.Stdout
+//		cmd.Stderr = os.Stderr
+//		if err = cmd.Run(); err != nil {
+//			r.logger.Error("read_quality bam", zap.Error(err), zap.String("cmd", cmd.String()))
+//		}
+//	})
+//	wg.Wait()
+//	return err
+//}
 func (r *reportPlugin) rpkmSaturation(dir string) error {
 	var (
 		err   error
@@ -546,6 +548,7 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 			if err = pool.Submit(func() {
 				temp := strings.TrimSuffix(name, ".sorted.bam")
 				cmd := exec.Command("RPKM_saturation.py", "-i", input,
+					//"-f", "png",
 					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
 					"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, temp))
 				defer func() {
@@ -558,6 +561,22 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 				cmd.Stderr = os.Stderr
 				if err = cmd.Run(); err != nil {
 					r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				} else {
+					//出png的图片
+					cmd = exec.Command("sed", "-i", "s/pdf/png/g",
+						fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err = cmd.Run(); err != nil {
+						r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					} else {
+						cmd = exec.Command("Rscript", fmt.Sprintf("%s/%s.saturation.r", types.REPORT_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						if err = cmd.Run(); err != nil {
+							r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+						}
+					}
 				}
 			}); err != nil {
 				r.logger.Error("pool RPKM_saturation run fail", zap.Error(err))
@@ -569,45 +588,118 @@ func (r *reportPlugin) rpkmSaturation(dir string) error {
 }
 func (r *reportPlugin) rpkmSaturationEx() error {
 	var (
-		err  error
-		pool *ants.Pool
-		wg   sync.WaitGroup
+		err   error
+		files []os.FileInfo
+		wg    sync.WaitGroup
+	)
+	files, err = ioutil.ReadDir(types.BSA_OUT)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		name := v.Name()
+		if v.IsDir() && strings.HasPrefix(name, "bsa_hisat2_") {
+			wg.Add(1)
+			go func() {
+				defer func() {
+					wg.Done()
+				}()
+				temp := strings.TrimPrefix(name, "bsa_hisat2_")
+				bam1 := path.Join(types.BSA_OUT, name, "acc.sorted.bam")
+				cmd := exec.Command("RPKM_saturation.py", "-i", bam1,
+					"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
+					"-o", fmt.Sprintf("%s/report_%s", types.REPORT_OUT, temp))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}()
+		}
+	}
+	wg.Wait()
+	return nil
+}
+
+func (r *reportPlugin) stringTieHandle(dir string) error {
+	var (
+		err   error
+		pool  *ants.Pool
+		files []os.FileInfo
+		wg    sync.WaitGroup
+		gtf   string
 	)
 	pool, err = ants.NewPool(2)
 	if err != nil {
 		return err
 	}
-	wg.Add(2)
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("RPKM_saturation.py", "-i", bam1,
-			"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam1"))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
-		}
-	})
+	files, err = ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	err = pool.Submit(func() {
-		defer func() {
-			wg.Done()
-		}()
-		cmd := exec.Command("RPKM_saturation.py", "-i", bam2,
-			"-r", fmt.Sprintf("%s/%s", types.REFERENCES, "gtf.bed12"),
-			"-o", fmt.Sprintf("%s/%s", types.REPORT_OUT, "bam2"))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err = cmd.Run(); err != nil {
-			r.logger.Error("RPKM_saturation bam", zap.Error(err), zap.String("cmd", cmd.String()))
+	for _, v := range files {
+		if strings.HasSuffix(v.Name(), ".sorted.bam") {
+			wg.Add(1)
+			name := v.Name()
+			//r := path.Join(wd,"script","featurecounts.R")
+			input := path.Join(dir, name)
+			if err = pool.Submit(func() {
+				temp := strings.TrimSuffix(name, ".sorted.bam")
+				cmd := exec.Command("stringtie", input,
+					//"-f", "png",
+					"-l", temp,
+					"-o", fmt.Sprintf("%s/%s.transcripts.gtf", types.REPORT_OUT, temp))
+				defer func() {
+					//bar.Add(1)
+					wg.Done()
+					r.logger.Info("build transcripts file success", zap.String("name", name))
+				}()
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err = cmd.Run(); err != nil {
+					r.logger.Error("build transcripts bam", zap.Error(err), zap.String("cmd", cmd.String()))
+				}
+			}); err != nil {
+				r.logger.Error("pool transcripts run fail", zap.Error(err))
+			}
 		}
-	})
+	}
 	wg.Wait()
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("find %s -name *.transcripts.gtf > %s/merglist.txt", types.REPORT_OUT, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("build transcripts bam", zap.Error(err), zap.String("cmd", cmd.String()))
+	}
+	if gtf, err = r.getGTF(); err != nil {
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("stringtie --merge -p 8 -G %s -o %s/stringtie_merged.gtf %s/merglist.txt", gtf, types.REPORT_OUT, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("build merge bam", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("gffcompare -r %s -G %s/stringtie_merged.gtf", gtf, types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("gffcompare gtf", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/sh", "-c", fmt.Sprintf("cp -r /work/gffcmp.* %s", types.REPORT_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	r.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		r.logger.Error("cp gtf", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
 	return nil
 }
 func (r *reportPlugin) Name() string {

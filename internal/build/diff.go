@@ -41,21 +41,63 @@ func (g *genePlugin) check(group *conf.Group) error {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("nomode_kegg.R", scripts.NOMODO_KEGG)
+	err = utils.WriteFile("diff_veen.R", scripts.DIFF_VEEN)
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("nomode_go.R", scripts.NOMODE_GO)
+	err = utils.WriteFile("diff_veen_four.R", scripts.DIFF_VEEN_FOUR)
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
-	err = utils.WriteFile("insertsect_go.R", scripts.INSERTSECT)
+	geneDB := fmt.Sprintf("org.%s.eg.db", g.config.GeneDB)
+	err = utils.WriteFile("nomode_kegg.R", fmt.Sprintf(scripts.NOMODO_KEGG, geneDB,
+		geneDB, geneDB, geneDB))
 	if err != nil {
 		g.logger.Error("cmd run fail", zap.Error(err))
 		return err
 	}
+	err = utils.WriteFile("nomode_kegg_ex.R", fmt.Sprintf(scripts.NOMODO_KEGG_EX))
+	if err != nil {
+		g.logger.Error("cmd run fail", zap.Error(err))
+		return err
+	}
+	err = utils.WriteFile("nomode_go_ex.R", fmt.Sprintf(scripts.NOMODE_GO_EX,
+		geneDB, geneDB, g.config.Factor, geneDB, g.config.Factor, geneDB, g.config.Factor))
+	if err != nil {
+		g.logger.Error("cmd run fail", zap.Error(err))
+		return err
+	}
+	err = utils.WriteFile("mode_go_mouse.R", fmt.Sprintf(scripts.MODE_GO_MOUSE,
+		geneDB, geneDB, g.config.Factor, geneDB, g.config.Factor, geneDB, g.config.Factor))
+	if err != nil {
+		g.logger.Error("cmd run fail", zap.Error(err))
+		return err
+	}
+	// 小鼠
+	if geneDB == "Mm" {
+		err = utils.WriteFile("mode_kegg_mouse.R", fmt.Sprintf(scripts.MODE_KEGG_MOUSE,
+			geneDB, geneDB, "mmu", g.config.Factor))
+		if err != nil {
+			g.logger.Error("cmd run fail", zap.Error(err))
+			return err
+		}
+	}
+	// 人
+	if geneDB == "Hs" {
+		err = utils.WriteFile("mode_kegg_mouse.R", fmt.Sprintf(scripts.MODE_KEGG_MOUSE,
+			geneDB, geneDB, "hsa", g.config.Factor))
+		if err != nil {
+			g.logger.Error("cmd run fail", zap.Error(err))
+			return err
+		}
+	}
+	//err = utils.WriteFile("insertsect_go.R", scripts.INSERTSECT)
+	//if err != nil {
+	//	g.logger.Error("cmd run fail", zap.Error(err))
+	//	return err
+	//}
 	return nil
 }
 func (g *genePlugin) Name() string {
@@ -74,13 +116,34 @@ func (g *genePlugin) getGTF() (string, error) {
 	return "", errors.New("gtf not find")
 }
 func (g *genePlugin) Build(ctx context.Context) error {
-	wd, _ := os.Getwd()
-	inputs := make([]string, 0)
-	for _, v := range g.config.Group {
+	var (
+		wd     string
+		inputs []string
+		param  string
+	)
+	wd, _ = os.Getwd()
+	// 线安装依赖包
+	cmd := exec.Command("Rscript", "install.R")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	if err := cmd.Run(); err != nil {
+		g.logger.Error("diff error", zap.Error(err))
+		return err
+	}
+	//var wg sync.WaitGroup
+	for _, group := range g.config.Group {
+		v := group
 		if err := g.check(v); err != nil {
-			return err
+			log.Println("check error", err.Error())
+			continue
 		}
 		if v.StartRepeated != "1" && v.EndRepeated != "1" {
+			if param == "" {
+				param += fmt.Sprintf("%s:%s:%s", v.Start, v.End, v.Name)
+			} else {
+				param += fmt.Sprintf(",%s:%s:%s", v.Start, v.End, v.Name)
+			}
 			cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_matrix.R"), path.Join(types.EXPRESSION_OUT, "gene_count.csv"),
 				v.Start, v.End,
 				v.StartRepeated,
@@ -89,28 +152,71 @@ func (g *genePlugin) Build(ctx context.Context) error {
 				v.Name)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 			if err := cmd.Run(); err != nil {
-				log.Println("diff error", err.Error())
-				return err
+				g.logger.Error("diff error", zap.Error(err))
+				continue
 			}
-			inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
-			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go.R"),
-				path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
-				fmt.Sprintf("%s/%s", v.Output, v.Name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				log.Println("diff error", err.Error())
-				return err
+			if g.config.GeneDB != "Mm" {
+				inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("diff error", zap.Error(err))
+					continue
+				}
+			} else {
+				inputs = append(inputs, path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)))
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "mode_go_mouse.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("diff error", zap.Error(err))
+					continue
+				}
 			}
-			cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
-				path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
-				fmt.Sprintf("%s/%s", v.Output, v.Name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
-				return err
+
+			//cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
+			//	path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+			//	fmt.Sprintf("%s/%s", v.Output, v.Name))
+			//cmd.Stdout = os.Stdout
+			//cmd.Stderr = os.Stderr
+			//g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+			//if err := cmd.Run(); err != nil {
+			//	g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+			//	return err
+			//}
+			if g.config.GeneDB != "Mm" && g.config.GeneDB != "Hs" {
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg_ex.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name),
+					"/work/kegg_annotation.txt")
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+					continue
+				}
+			} else {
+				//Mm Hs
+				cmd = exec.Command("Rscript", path.Join(wd, "script", "mode_kegg_mouse.R"),
+					path.Join(v.Output, fmt.Sprintf("diffexpr-%s-0.05.txt", v.Name)),
+					fmt.Sprintf("%s/%s", v.Output, v.Name))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+				if err := cmd.Run(); err != nil {
+					g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+					continue
+				}
 			}
 		} else {
 			//gfold diff -s1 sample1 -s2 sample2 -suf .read_cnt -o result.diff
@@ -120,38 +226,67 @@ func (g *genePlugin) Build(ctx context.Context) error {
 				"-o", fmt.Sprintf("%s/%s", v.Output, v.Name))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 			if err := cmd.Run(); err != nil {
 				g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
 			}
 		}
-		g.logger.Info("diff finished......")
 	}
-	if g.config.DiffGroup != nil && len(inputs) > 0 {
-		cmd := exec.Command("Rscript", path.Join(wd, "script", "insertsect_go.R"), strings.Join(inputs, ","), fmt.Sprintf("%s/all", g.config.DiffGroup.Output))
+	//wg.Wait()
+	g.logger.Info("diff finished......")
+	if g.config.DiffGroup.Groups != nil && len(g.config.DiffGroup.Groups) == 3 {
+		cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_veen.R"), strings.Join(g.config.DiffGroup.Groups, ","))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 		if err := cmd.Run(); err != nil {
 			g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
 			return err
 		}
-		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go.R"),
-			fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
-			fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
+	}
+	if g.config.DiffGroup.Groups != nil && len(g.config.DiffGroup.Groups) == 4 {
+		cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_veen_four.R"), strings.Join(g.config.DiffGroup.Groups, ","))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
 		if err := cmd.Run(); err != nil {
-			log.Println("diff error", err.Error())
-			return err
-		}
-		cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
-			fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
-			fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+			g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
 			return err
 		}
 	}
+	//if g.config.DiffGroup != nil && len(inputs) > 0 {
+	//	cmd := exec.Command("Rscript", path.Join(wd, "script", "insertsect_go.R"), strings.Join(inputs, ","), fmt.Sprintf("%s/all", g.config.DiffGroup.Output))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//	cmd := exec.Command("Rscript", path.Join(wd, "script", "diff_veen.R"), strings.Join(g.config.DiffGroup.Groups, ","), strings.Join(g.config.DiffGroup.GroupNames, ","))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("run fail", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//	cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_go_ex.R"),
+	//		fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
+	//		fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		log.Println("diff error", err.Error())
+	//		return err
+	//	}
+	//	cmd = exec.Command("Rscript", path.Join(wd, "script", "nomode_kegg.R"),
+	//		fmt.Sprintf("%s/all_merge.txt", g.config.DiffGroup.Output),
+	//		fmt.Sprintf("%s/%s", g.config.DiffGroup.Output, g.config.DiffGroup.Name))
+	//	cmd.Stdout = os.Stdout
+	//	cmd.Stderr = os.Stderr
+	//	if err := cmd.Run(); err != nil {
+	//		g.logger.Error("diff error", zap.String("cmd", cmd.String()), zap.Error(err))
+	//		return err
+	//	}
+	//}
 	return nil
 }

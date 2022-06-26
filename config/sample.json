@@ -1,0 +1,14 @@
+{
+  "project":{
+    "number":"Q202106004",
+    "type":"转录组标准分析",
+    "species":"柑橘",
+    "sampleForm":"DNA",
+    "platform":"Illumina NovaSeq",
+    "dataSize":"100G",
+    "analyse":"标准生物信息分析",
+    "manager":"贺兴",
+    "finished":"2021-12-05"
+  },
+  "samples":["A","B","C","D","E","F","G"]
+}

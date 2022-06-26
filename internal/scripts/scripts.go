@@ -32,16 +32,33 @@ if(! require(xlsx))
 args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
-outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+outFileNumber<-args[3]
+outFileXls<-args[4]
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','counts')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
+
+counts = counts[-nrow(counts),]
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
+
+names(counts)
+names = counts$gene
+head(names)
+data = as.data.frame(lapply(counts[,-1],as.numeric))
+data = cbind(gene = counts[,1],data)
+rownames(data) = names
+#data$gene = counts$gene
+head(data)
+data = na.omit(data)
+summary(data)
+write.table(data,file=outFileNumber,sep="\t",quote=FALSE,row.names=FALSE)
+
+#write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
 `
 	MATRIX_TPM = `
@@ -51,13 +68,13 @@ args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
 outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','tpm')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
@@ -69,13 +86,13 @@ args<-commandArgs(trailingOnly=TRUE)
 inFile<-args[1]
 outFile<-args[2]
 outFileXls<-args[3]
-a=read.csv(inFile,header=F,sep="\t")
+a=read.csv(inFile,header=F,sep="\t",stringsAsFactors = F)
 colnames(a)=c('sample','gene','fpkm')
 head(a)
 library(reshape2)
 counts=dcast(a,formula=gene~sample)
 head(counts)
-counts = counts[-1,]
+#counts = counts[-1,]
 head(counts)
 write.table(counts,file=outFile,sep="\t",quote=FALSE,row.names=FALSE)
 write.csv(counts, outFileXls,row.names = T)
@@ -203,6 +220,17 @@ ggplot(result, aes(x=index, y=value, colour=type,group=type)) +
     ylab("quality") + theme(panel.background = element_rect(fill = 'grey', colour = 'grey'))
 dev.off()
 `
+	READ_REPORT = `args=commandArgs(T)
+print(args[1])
+print(args[2])
+data = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)
+library(ggplot2)
+data = data[c("Group","Tag_count")]
+png(args[2],width=800,height=600)
+ggplot(data=data,mapping=aes(x=Group,y=Tag_count,fill=Group,group=factor(1)))+
+  geom_bar(stat="identity")
+dev.off()
+`
 	FPKM_REPORT = `
 if(! require(xlsx))
         install.packages("xlsx")
@@ -258,7 +286,7 @@ rug = TRUE, xlab = "log10(fpkm)",
 color = "sample", fill = "sample")
 dev.off()
 
-png("/data/output/report_result/fpkm_violin.png")
+png("/data/output/report_result/fpkm_violin.png",width=1200,height=600)
 ggplot(result, aes(sample,value))+
   geom_violin(aes(fill = sample),trim = FALSE)+
   geom_boxplot(width = 0.2)+
@@ -296,24 +324,32 @@ pdf("/data/output/report_result/pca_count.pdf")
 ggscatter(pca.data,x = "PC1",y = "PC2",color = "Type",size = 5) + theme_bw()
 dev.off()`
 	FREQ_REPORT = `rm(list = ls())
-data = read.table("/data/output/expression_result/gene_count.csv",sep = "\t",header = T,row.names = 1)
+library(ggplot2)
+data <- read.table("/data/output/expression_result/gene_count_number.csv",sep = "\t",header = T,row.names = 1,stringsAsFactors = F)
+#data <- data.frame(lapply(data,as.numeric))
+ncol(data)
+
 for (i in 1:ncol(data)) {
-    temp = data.frame(value = data[,i],sample = colnames(data)[i])
-    temp$value.type[temp$value < 5] = "0-5"
-    temp$value.type[temp$value >= 5 & temp$value < 100] = "5-100"
-    temp$value.type[temp$value >= 100 & temp$value < 500] = "100-500"
-    temp$value.type[temp$value >= 500 & temp$value < 1000] = "500-1000"
-    temp$value.type[temp$value >= 1000] = ">=1000"
-    a = data.frame(table(temp$value.type))
-    x = factor(a$Var1,levels = c("0-5","5-100","100-500","500-1000",">=1000"))
-    filename = paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.png")
+    print(i)
+    a <- table(cut(data[,i],breaks=c(-1,10,100,1000,10000,1000000)))
+    d <- as.data.frame(a)
+	a
+    group <- c("0-10","10-100","100-1000","1000-10000",">=10000")
+    d$group  <- group
+    print(d)
+    p <- ggplot(data=d,mapping=aes(x=group,y=Freq,fill=group,group=factor(1)))+geom_bar(stat="identity")
+    filename <- paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.png")
+    print(filename)
     png(filename,width=800,height=800)
-    barplot(Freq~x, data=a,main="gene count",xlab="gene expression level",ylab="count")
+    print(p)
     dev.off()
-    filename = paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.pdf")
+
+    filename <- paste0("/data/output/report_result/",colnames(data)[i],"_freq_count.pdf")
+    print(filename)
     pdf(filename)
-    barplot(Freq~x, data=a,main="gene count",xlab="gene expression level",ylab="count")
+    print(p)
     dev.off()
+    print("finished")
 }`
 	HEATMAP_REPORT = `rm(list = ls())
 library(pheatmap)
@@ -326,10 +362,23 @@ png("/data/output/report_result/heatmap_count.png",width=800,height=800)
 #write.table(cor_matr, file="cor_matr.xls",row.names=F, col.names=T,quote=FALSE,sep="\t")
 pheatmap(cor_data,display_numbers = T,clustering_method = "average")
 dev.off()
-
 pdf("/data/output/report_result/heatmap_count.pdf")
 #write.table(cor_matr, file="cor_matr.xls",row.names=F, col.names=T,quote=FALSE,sep="\t")
 pheatmap(cor_data,display_numbers = T,clustering_method = "average")
+dev.off()`
+	HEATMAP_REPORT_EX = `install.packages("pheatmap")
+library(pheatmap)
+data = read.table("/data/output/expression_result/gene_count.csv",header = T,sep ="\t",row.names = 1)
+data = as.data.frame(lapply(data,as.numeric))
+data[data==0] <- NA
+data[is.na(data)] <- min(data,na.rm = T)*0.01
+head(data)
+png("/data/output/report_result/cluster.png",width=1200,height=800)
+pheatmap(log10(data))
+dev.off()
+
+pdf("/data/output/report_result/cluster.pdf")
+pheatmap(log10(data))
 dev.off()`
 
 	INSERTSECT = `
@@ -352,72 +401,183 @@ colnames(data) = c("Gene")
 write.table(data,file=paste(args[2],"merge.txt",sep = "_"))
 write.csv(data,file=paste(args[2],"merge.csv",sep = "_"),row.names = F)
 `
-	NOMODE_GO = `
-if(! require(clusterProfiler))
-        install.packages("clusterProfiler")
-#install.packages("org.Rsativus.eg.db", repos = NULL, type = "source")
-library(org.Rsativus.eg.db)
-library(clusterProfiler)
+	NOMODE_GO_EX = `
 args=commandArgs(T)
 print(args[1])
 print(args[2])
-
+display_number = c(10, 10, 10)
+## GO enrichment with clusterProfiler
+library(%s)
+library(clusterProfiler)
+library(GOplot)
+library(topGO)
+library(Rgraphviz)
 glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
+ego_MF <- enrichGO(OrgDb=%s,
+             gene = glist,
+                   keyType="GID",
+             pvalueCutoff = %f,
+             ont = "MF")
 
-ego_all_0.05 <- enrichGO(gene = glist,
-                        keyType="GID",
-                        #模式物种
-                        #OrgDb = org.Mm.eg.db,
-                        #非模式物种
-                        OrgDb = org.Rsativus.eg.db,
-                        ont = "ALL", #ALL或BP或MF或CC
-                        pAdjustMethod = "BH",
-                        pvalueCutoff  = 0.05,
-                        qvalueCutoff  = 0.05)
-#data = as.data.frame(ego_all_0.05)
-pdf(paste(args[2],"go_enrich.dotplot.pdf",sep = "_"))
-dotplot(ego_all_0.05,showCategory=10, font.size = 8)
+pdf(paste(args[2],"go_enrich_mf_top10.pdf",sep = "_"),width=800,height=800)
+plotGOgraph(ego_MF)
+dev.off()
+png(paste(args[2],"go_enrich_mf_top10.png",sep = "_"),width=800,height=800)
+plotGOgraph(ego_MF)
 dev.off()
 
-pdf(paste(args[2],"go_enrich.dotplot.png",sep = "_"))
-dotplot(ego_all_0.05,showCategory=10, font.size = 8)
+ego_MF=as.data.frame(ego_MF)
+ego_MF=ego_MF[order(ego_MF$Count,decreasing = T),]
+ego_MF
+name=paste(args[2],"MF_GO.csv",sep = "_")
+write.table(ego_MF,file=name,sep = "\t")
+ego_result_MF <-  na.omit(ego_MF[1:display_number[1], ])
+nrow(ego_result_MF)
+ego_result_MF
+ego_CC <- enrichGO(OrgDb=%s,
+                   gene = glist,
+                   pvalueCutoff = %f,
+                               keyType="GID",
+                   ont = "CC")
+                  # readable=TRUE)
+
+
+pdf(paste(args[2],"go_enrich_cc_top10.pdf",sep = "_"),width=800,height=800)
+plotGOgraph(ego_CC)
+dev.off()
+png(paste(args[2],"go_enrich_cc_top10.png",sep = "_"),width=800,height=800)
+plotGOgraph(ego_CC)
 dev.off()
 
 
-write.csv(as.data.frame(ego_all_0.05),paste(args[2],"go_enrich_q_0.05.csv",sep = "_"),row.names = F)
+ego_CC=as.data.frame(ego_CC)
+ego_CC=ego_CC[order(ego_CC$Count,decreasing = T),]
+name=paste(args[2],"CC_GO.csv",sep = "_")
+write.table(ego_CC,file=name,sep = "\t")
+
+ego_result_CC <-  na.omit(ego_CC[1:display_number[2], ])
+# ego_result_CC <- ego_result_CC[order(ego_result_CC$Count),]
+nrow(ego_result_CC)
+ego_result_CC
+ego_BP <- enrichGO(OrgDb=%s,
+                   gene = glist,
+                               keyType="GID",
+                   pvalueCutoff = %f,
+                   ont = "BP")
+                   #readable=TRUE)
+
+pdf(paste(args[2],"go_enrich_bp_top10.pdf",sep = "_"),width=800,height=800)
+plotGOgraph(ego_BP)
+dev.off()
+png(paste(args[2],"go_enrich_bp_top10.png",sep = "_"),width=800,height=800)
+plotGOgraph(ego_BP)
+dev.off()
+
+ego_BP=as.data.frame(ego_BP)
+ego_BP=ego_BP[order(ego_BP$Count,decreasing = T),]
+name=paste(args[2],"BP_GO.csv",sep = "_")
+write.table(ego_BP,file=name,sep = "\t")
+ego_result_BP <- na.omit(ego_BP[1:display_number[3], ])
+nrow(ego_result_BP)
+ego_result_BP
+go_enrich_df <- data.frame(ID=c(ego_result_BP$ID, ego_result_CC$ID, ego_result_MF$ID),
+                                   Description=c(ego_result_BP$Description, ego_result_CC$Description, ego_result_MF$Description),
+                               GeneNumber=c(ego_result_BP$Count, ego_result_CC$Count, ego_result_MF$Count),
+                                   type=factor(c(rep("molecular function", nrow(ego_result_MF)), rep("cellular component", nrow(ego_result_CC)),rep("biological process", nrow(ego_result_BP))), levels=c( "molecular function","cellular component","biological process")))
+name=paste(args[2],"ALL_GO.csv",sep = "_")
+write.table(go_enrich_df,file=name,sep = "\t")
+## numbers as data on x axis
+go_enrich_df$number <- factor(rev(1:nrow(go_enrich_df)))
+## shorten the names of GO terms
+shorten_names <- function(x, n_word=4, n_char=40){
+  if (length(strsplit(x, " ")[[1]]) > n_word || (nchar(x) > 40))
+  {
+    if (nchar(x) > 40) x <- substr(x, 1, 40)
+    x <- paste(paste(strsplit(x, " ")[[1]][1:min(length(strsplit(x," ")[[1]]), n_word)],
+                       collapse=" "), "...", sep="")
+    return(x)
+  }
+  else
+  {
+    return(x)
+  }
+}
+
+#labels=(sapply(
+#  levels(factor(go_enrich_df$Description)),
+#  shorten_names))
+nrow(go_enrich_df)
+go_enrich_df$Description = lapply(go_enrich_df$Description,shorten_names)
+head(go_enrich_df)
+
+#names(labels)=factor(rev(1:nrow(go_enrich_df)))
 
 
-data = read.csv(paste(args[2],"go_enrich_q_0.05.csv",sep = "_"),sep = ",")
-bp = data[data$ONTOLOGY=='BP',]
-bp = bp[order(bp$Count,decreasing = T),]
-if (nrow(bp) > 10) {
-  bp = bp[1:10,]
-}
-cc = data[data$ONTOLOGY=='CC',]
-cc = cc[order(bp$Count,decreasing = T),]
-if (nrow(cc) > 10) {
-  cc = cc[1:10,]
-}
-mf = data[data$ONTOLOGY=='MF',]
-mf = mf[order(mf$Count,decreasing = T),]
-if (nrow(mf) > 10) {
-  mf = mf[1:10,]
-}
-input = rbind(mf,cc,bp)
-
+## colors for bar // green, blue, orange
+CPCOLS <- c("#66C3A5","#8DA1CB","#FD8D62")
 library(ggplot2)
+p <- ggplot(data=go_enrich_df, aes(x=number, y=GeneNumber, fill=type)) +
+  geom_bar(stat="identity", width=0.8) + coord_flip() +
+  scale_fill_manual(values = CPCOLS) + theme_bw() +
+  scale_x_discrete(labels=go_enrich_df$Description) +
+  xlab("GO term") +
+  theme(axis.text=element_text(face = "bold", color="gray50")) +
+  labs(title = "The Most Enriched GO Terms")
+pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"),width=800,height=800)
+p
+dev.off()
+png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"),width=800,height=800)
+p
+dev.off()
+`
+	NOMODO_KEGG_EX = `
+args=commandArgs(T)
+print(args[1])
+print(args[2])
+print(args[3])
+library(clusterProfiler)
+glist = read.table(args[3], sep = '\t',header = FALSE, stringsAsFactors = FALSE)
+head(glist)
+pathway2gene=data.frame(Pathway=glist$V2,GID=glist$V1)
+pathway2name=data.frame(Pathway=glist$V2,Name=glist$V3)
+gene_list = read.table(args[1],header =TRUE, stringsAsFactors = FALSE)$Gene
+ekp <- enricher(gene_list,
+                TERM2GENE = pathway2gene,
+                TERM2NAME = pathway2name,
+                pvalueCutoff = 0.05,
+                pAdjustMethod = "BH",
+                minGSSize = 5)
+ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
+nrow(ekp_results)
+write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG-0.05.txt",sep = "_"))
+write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG-0.05.csv",sep = "_"),row.names = T)
 
-#ggplot(data=data, aes(x=Description,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8)
+pdf(paste(args[2],"KEGG_enrichment.barplot-0.05.pdf",sep = "_"))
+barplot(ekp,showCategory=20,drop=T,font.size = 8)
+dev.off()
+
+png(paste(args[2],"KEGG_enrichment.barplot-0.05.png",sep = "_"))
+barplot(ekp,showCategory=20,drop=T,font.size = 8)
+dev.off()
+
+
+pdf(paste(args[2],"KEGG_enrichment.dotplot-0.05.pdf",sep = "_"))
+dotplot(ekp,showCategory=20, font.size = 8)
+dev.off()
+
+png(paste(args[2],"KEGG_enrichment.dotplot-0.05.png",sep = "_"))
+dotplot(ekp,showCategory=20, font.size = 8)
+dev.off()
+
+#pdf(paste(args[2],"KEGG_enrichment.emapplot-0.05.pdf",sep = "_"))
+#emapplot(ekp,  showCategory = 30)
 #dev.off()
-#将GO_term设定为factor即可按照顺序输出
-GO_term_order=factor(as.integer(rownames(input)),labels=input$Description)
-pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"))
-ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
-dev.off()
-
-pdf(paste(args[2],"go_enrich_q_0.05.png",sep = "_"))
-ggplot(data=input, aes(x=GO_term_order,y=Count, fill=ONTOLOGY)) + geom_bar(stat="identity", width=0.8) + coord_flip() +  xlab("GO term") + ylab("Num of Genes") + theme_bw()
-dev.off()
+#png(paste(args[2],"KEGG_enrichment.emapplot-0.05.png",sep = "_"))
+#emapplot(ekp,showCategory=20, font.size = 8)
+#dev.off()
 `
 	NOMODO_KEGG = `
 library(purrr)
@@ -435,8 +595,8 @@ if(! require(tidyverse))
 ################################################
 # 导入自己构建的 OrgDb
 ################################################
-library(org.Rsativus.eg.db)
-columns(org.Rsativus.eg.db)
+library(%s)
+columns(%s)
 
 ########################################################################################
 # 导入需要进行富集分析的基因列表，并转换为向量
@@ -453,12 +613,12 @@ glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
 # 从 OrgDB 提取 Pathway 和基因的对应关系
 ################################################
 
-pathway2gene <- AnnotationDbi::select(org.Rsativus.eg.db, 
-                                      keys = keys(org.Rsativus.eg.db), 
-                                      columns = c("Pathway")) %>%
-  na.omit() %>%
+pathway2gene <- AnnotationDbi::select(%s, 
+                                      keys = keys(%s), 
+                                      columns = c("Pathway")) %%>%%
+  na.omit() %%>%%
   dplyr::select(Pathway, GID)
-
+head(pathway2gene)
 ################################################
 # 导入 Pathway 与名称对应关系
 ################################################
@@ -484,7 +644,7 @@ if(!file.exists('kegg_info.RData')){
           pathway_info <- kegg[["children"]][["children"]][[a]][["children"]][[b]][["name"]][[c]]
 
           pathway_id <- str_match(pathway_info, "ko[0-9]{5}")[1]
-          pathway_name <- str_replace(pathway_info, " \\[PATH:ko[0-9]{5}\\]", "") %>% str_replace("[0-9]{5} ", "")
+          pathway_name <- str_replace(pathway_info, " \\[PATH:ko[0-9]{5}\\]", "") %%>%% str_replace("[0-9]{5} ", "")
           pathway2name <- rbind(pathway2name, tibble(Pathway = pathway_id, Name = pathway_name))
 
           kos_info <- kegg[["children"]][["children"]][[a]][["children"]][[b]][["children"]][[c]][["name"]]
@@ -503,7 +663,7 @@ if(!file.exists('kegg_info.RData')){
 
 }
 load("kegg_info.RData")
-
+head(pathway2name)
 #KEGG pathway 富集
 ekp <- enricher(glist, 
                 TERM2GENE = pathway2gene, 
@@ -512,8 +672,11 @@ ekp <- enricher(glist,
                 qvalueCutoff = 1,
                 pAdjustMethod = "BH",
                 minGSSize = 5)
-
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.csv",sep = "_"),row.names = T)
 
@@ -538,46 +701,52 @@ ekp <- enricher(glist,
                 TERM2GENE = pathway2gene,
                 TERM2NAME = pathway2name,
                 pvalueCutoff = 0.05,
-                qvalueCutoff = 1,
                 pAdjustMethod = "BH",
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.p.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.p.csv",sep = "_"),row.names = T)
 
 pdf(paste(args[2],"KEGG_enrichment.barplot_p.pdf",sep = "_"))
-barplot(ekp,showCategory=10,drop=T,font.size = 8)
+barplot(ekp,showCategory=20,drop=T,font.size = 8)
 dev.off()
 
 png(paste(args[2],"KEGG_enrichment.barplot_p.png",sep = "_"))
-barplot(ekp,showCategory=10,drop=T,font.size = 8)
+barplot(ekp,showCategory=20,drop=T,font.size = 8)
 dev.off()
 
 
 pdf(paste(args[2],"KEGG_enrichment.dotplot_p.pdf",sep = "_"))
-dotplot(ekp,showCategory=10, font.size = 8)
+dotplot(ekp,showCategory=20, font.size = 8)
 dev.off()
 
 png(paste(args[2],"KEGG_enrichment.dotplot_p.png",sep = "_"))
-dotplot(ekp,showCategory=10, font.size = 8)
+dotplot(ekp,showCategory=20, font.size = 8)
 dev.off()
 
 ekp <- enricher(glist,
                 TERM2GENE = pathway2gene,
                 TERM2NAME = pathway2name,
-                pvalueCutoff = 1,
                 qvalueCutoff = 0.05,
                 pAdjustMethod = "BH",
                 minGSSize = 5)
 
 ekp_results <- as.data.frame(ekp)
+if(dim(ekp_results)[1] == 0){
+	return(message("data frame len is zero!"))
+}
+nrow(ekp_results)
 write.table(ekp_results, file = paste(args[2],"DEG.enrichKEGG.q.txt",sep = "_"))
 write.csv(ekp_results, paste(args[2],"DEG.enrichKEGG.q.csv",sep = "_"),row.names = T)
 
 
 pdf(paste(args[2],"KEGG_enrichment.barplot_q.pdf",sep = "_"))
-barplot(ekp,showCategory=10,drop=T,font.size = 8)
+barplot(ekp,showCategory=20,drop=T,font.size = 8)
 dev.off()
 
 png(paste(args[2],"KEGG_enrichment.barplot_q.png",sep = "_"))
@@ -586,10 +755,25 @@ dev.off()
 
 
 pdf(paste(args[2],"KEGG_enrichment.dotplot_q.pdf",sep = "_"))
-dotplot(ekp,showCategory=10, font.size = 8)
+dotplot(ekp,showCategory=20, font.size = 8)
 dev.off()
 
 png(paste(args[2],"KEGG_enrichment.dotplot_q.png",sep = "_"))
-dotplot(ekp,showCategory=10, font.size = 8)
+dotplot(ekp,showCategory=20, font.size = 8)
 dev.off()`
+	BUILD_STAT = `
+library(ggplot2)
+data =  read.csv("/data/output/report_result/stat.csv",header = T)
+data
+png("/data/output/report_result/build_stat.png")
+bp<- ggplot(data, aes(x="", y=Percentage, fill=Group))+
+geom_bar(width = 1, stat = "identity") + coord_polar(theta = "y")+ theme(panel.grid = element_blank(),axis.text = element_blank(), axis.title = element_blank(),axis.ticks = element_blank()) +guides(fill = guide_legend(title = "Class_code"))
+newlegend <- paste(data$Group, " (", round(data$Percentage/sum(data$Percentage)* 100, 2), "%)", sep = "")
+bp = bp + scale_fill_discrete(breaks = data$Group, labels = newlegend)
+bp
+dev.off()
+pdf("/data/output/report_result/build_stat.pdf")
+bp
+dev.off()
+`
 )

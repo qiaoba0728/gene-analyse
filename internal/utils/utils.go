@@ -3,18 +3,23 @@ package utils
 import (
 	"archive/zip"
 	"bufio"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/qiaoba0728/gene-analyse/internal/conf"
 	"github.com/qiaoba0728/gene-analyse/internal/types"
 	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -332,4 +337,128 @@ func DelSuf(dir, suf string) error {
 		}
 	}
 	return nil
+}
+
+func RandFloats(min, max float64, n int) []float64 {
+	res := make([]float64, n)
+	for i := range res {
+		res[i] = min + rand.Float64()*(max-min)
+	}
+	return res
+}
+func BuildConfig(path string, internal int, target string) ([]string, error) {
+	var (
+		config *conf.Config
+		params []string
+	)
+	config = &conf.Config{
+		GeneDB:    "Rsativus",
+		Factor:    0.5,
+		Group:     make([]*conf.Group, 0),
+		DiffGroup: &conf.DiffGroup{},
+	}
+	//先获取到文件信息
+	fileinfo, err := os.Stat(path)
+	if err != nil {
+		return params, fmt.Errorf("get file info error")
+	}
+	//判断是否是目录
+	if fileinfo.IsDir() {
+		return params, fmt.Errorf("paths is dir")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return params, err
+	}
+	defer f.Close()
+	rd := bufio.NewReader(f)
+	line, err := rd.ReadString('\n')
+	if err != nil {
+		return params, err
+	}
+	lines := strings.Split(line, "\t")
+	for i := 1; i < len(lines)-1; i = i + internal {
+		for j := i + internal; j < len(lines); j = j + internal {
+			name := fmt.Sprintf("%s_vs_%s", strings.Replace(lines[i], "_1", "", -1), strings.Replace(lines[j], "_1", "", -1))
+			temp := &conf.Group{
+				Start:         fmt.Sprintf("%d", i),
+				End:           fmt.Sprintf("%d", j),
+				Name:          name,
+				StartRepeated: fmt.Sprintf("%d", internal),
+				EndRepeated:   fmt.Sprintf("%d", internal),
+				Output:        "/data/output/diff",
+				Richer:        true,
+			}
+			config.Group = append(config.Group, temp)
+		}
+		param := fmt.Sprintf("%d:%d", i+1, i+internal)
+		params = append(params, param)
+	}
+	for _, v := range lines {
+		if strings.HasSuffix(v, "_1") {
+			config.Samples = append(config.Samples, strings.Replace(v, "_1", "", -1))
+		}
+	}
+	filePtr, err := os.Create(target)
+	if err != nil {
+		return params, err
+	}
+	defer filePtr.Close()
+	//创建基于文件的JSON编码器
+	encoder := json.NewEncoder(filePtr)
+	//将小黑子实例编码到文件中
+	err = encoder.Encode(config)
+	if err != nil {
+		return params, err
+	}
+	for k, v := range config.Samples {
+		params[k] = fmt.Sprintf("%s:%s", params[k], v)
+	}
+	return params, nil
+}
+
+//写入文件,保存
+func WritePngFile(path string, base64_image_content string) bool {
+	b, _ := regexp.MatchString(`^data:\s*image\/(\w+);base64,`, base64_image_content)
+	if !b {
+		return false
+	}
+	re, _ := regexp.Compile(`^data:\s*image\/(\w+);base64,`)
+	//allData := re.FindAllSubmatch([]byte(base64_image_content), 2)
+	//fileType := string(allData[0][1]) //png ，jpeg 后缀获取
+
+	base64Str := re.ReplaceAllString(base64_image_content, "")
+
+	//date := time.Now().Format("2006-01-02")
+	//if ok := IsExist(path + "/" + date); !ok {
+	//	os.Mkdir(path+"/"+date, 0666)
+	//}
+
+	//curFileStr := strconv.FormatInt(time.Now().UnixNano(), 10)
+	//
+	//r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	//n := r.Intn(99999)
+
+	//var file string = path + "/" + date + "/" + curFileStr + strconv.Itoa(n) + "." + fileType
+	byte, _ := base64.StdEncoding.DecodeString(base64Str)
+
+	err := ioutil.WriteFile(path, byte, 0666)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return false
+}
+func CopyFile(dstName, srcName string) (written int64, err error) {
+	src, err := os.Open(srcName)
+	if err != nil {
+		return
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return
+	}
+	defer dst.Close()
+	return io.Copy(dst, src)
 }
