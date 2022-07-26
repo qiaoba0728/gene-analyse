@@ -289,11 +289,19 @@ func (g *bsaRNAPlugin) pipeline() error {
 	if err != nil {
 		return err
 	}
+	cmd := exec.Command("samtools", "faidx", fa)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("dna pipeline", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
 	fai, err := g.getfai()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("cat %s | cut -f1,2 > /data/input/references/size.txt", fai))
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("cat %s | cut -f1,2 > /data/input/references/size.txt", fai))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {

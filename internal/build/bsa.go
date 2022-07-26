@@ -300,6 +300,14 @@ func (g *bsaPlugin) pipeline() error {
 	if err != nil {
 		return err
 	}
+	cmd := exec.Command("samtools", "faidx", fa)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	g.logger.Info("dna pipeline", zap.String("cmd", cmd.String()))
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
 	var tp types.SampleType
 	if len(g.samples) != 2 {
 		g.logger.Warn("sample num is error", zap.Strings("samples", g.samples))
@@ -351,7 +359,7 @@ func (g *bsaPlugin) pipeline() error {
 	if thread = os.Getenv("THREAD"); thread == "" {
 		thread = "10"
 	}
-	cmd := exec.Command("DNA_BSA_pipeline.pl", "-f", fa,
+	cmd = exec.Command("DNA_BSA_pipeline.pl", "-f", fa,
 		"-b", types.BSA_GENOME_PREFIX,
 		"-3", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], g.tp.CleanType()),
 		"-4", fmt.Sprintf("%s/%s%s", types.FASTP_OUT, g.samples[0], strings.Replace(g.tp.CleanType(), "1", "2", -1)),
@@ -379,6 +387,13 @@ func (g *bsaPlugin) pipeline() error {
 		return err
 	}
 	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("./extract.sh %s", types.BSA_OUT))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err = cmd.Run(); err != nil {
+		g.logger.Error("pipeline", zap.Error(err), zap.String("cmd", cmd.String()))
+		return err
+	}
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("./coverage_extract.sh %s", types.REPORT_OUT))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
