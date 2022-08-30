@@ -73,7 +73,10 @@ func WriteFile(name, data string) error {
 			log.Println("=================> mkdir err:", err.Error())
 		}
 	}
-	return ioutil.WriteFile(path.Join(d, name), []byte(data), 0644)
+	if !IsExist(path.Join(d, name)) {
+		return ioutil.WriteFile(path.Join(d, name), []byte(data), 0644)
+	}
+	return nil
 }
 
 func ReadKEGG(file string) (map[string]string, error) {

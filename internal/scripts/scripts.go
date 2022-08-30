@@ -411,7 +411,7 @@ library(%s)
 library(clusterProfiler)
 library(GOplot)
 library(topGO)
-library(Rgraphviz)
+# library(Rgraphviz)
 glist = read.table(args[1], header = TRUE, stringsAsFactors = FALSE)$Gene
 ego_MF <- enrichGO(OrgDb=%s,
              gene = glist,
@@ -419,12 +419,12 @@ ego_MF <- enrichGO(OrgDb=%s,
              pvalueCutoff = %f,
              ont = "MF")
 
-pdf(paste(args[2],"go_enrich_mf_top10.pdf",sep = "_"),width=800,height=800)
-plotGOgraph(ego_MF)
-dev.off()
-png(paste(args[2],"go_enrich_mf_top10.png",sep = "_"),width=800,height=800)
-plotGOgraph(ego_MF)
-dev.off()
+#pdf(paste(args[2],"go_enrich_mf_top10.pdf",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_MF)
+#dev.off()
+#png(paste(args[2],"go_enrich_mf_top10.png",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_MF)
+#dev.off()
 
 ego_MF=as.data.frame(ego_MF)
 ego_MF=ego_MF[order(ego_MF$Count,decreasing = T),]
@@ -442,12 +442,12 @@ ego_CC <- enrichGO(OrgDb=%s,
                   # readable=TRUE)
 
 
-pdf(paste(args[2],"go_enrich_cc_top10.pdf",sep = "_"),width=800,height=800)
-plotGOgraph(ego_CC)
-dev.off()
-png(paste(args[2],"go_enrich_cc_top10.png",sep = "_"),width=800,height=800)
-plotGOgraph(ego_CC)
-dev.off()
+#pdf(paste(args[2],"go_enrich_cc_top10.pdf",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_CC)
+#dev.off()
+#png(paste(args[2],"go_enrich_cc_top10.png",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_CC)
+#dev.off()
 
 
 ego_CC=as.data.frame(ego_CC)
@@ -466,12 +466,12 @@ ego_BP <- enrichGO(OrgDb=%s,
                    ont = "BP")
                    #readable=TRUE)
 
-pdf(paste(args[2],"go_enrich_bp_top10.pdf",sep = "_"),width=800,height=800)
-plotGOgraph(ego_BP)
-dev.off()
-png(paste(args[2],"go_enrich_bp_top10.png",sep = "_"),width=800,height=800)
-plotGOgraph(ego_BP)
-dev.off()
+#pdf(paste(args[2],"go_enrich_bp_top10.pdf",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_BP)
+#dev.off()
+#png(paste(args[2],"go_enrich_bp_top10.png",sep = "_"),width=800,height=800)
+#plotGOgraph(ego_BP)
+#dev.off()
 
 ego_BP=as.data.frame(ego_BP)
 ego_BP=ego_BP[order(ego_BP$Count,decreasing = T),]

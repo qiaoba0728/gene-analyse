@@ -201,41 +201,41 @@ func (g *gatkPlugin) Build(ctx context.Context) error {
 		}()
 		wg.Wait()
 		//clean -> sam
-		if b := utils.IsExist(types.FASTP_OUT); b {
-			if b := utils.IsExist(types.HISAT2_OUT); !b || (b && utils.Files(types.HISAT2_OUT) == 0) {
-				if err := g.bwa(types.FASTP_OUT); err != nil {
-					g.logger.Error("clean -> hisat data fail", zap.Error(err))
-					return err
-				}
-			} else {
-				g.logger.Info("hisat2 data has build")
-				files, err := ioutil.ReadDir(types.FASTP_OUT)
-				if err != nil {
-					g.logger.Error("read hisat2 data fail", zap.Error(err))
-				} else {
-					names := make([]string, 0)
-					for _, v := range files {
-						names = append(names, v.Name())
-					}
-					g.logger.Warn("hisat2 data ", zap.Strings("files", names))
-				}
-			}
-		} else {
-			g.logger.Error("hisat2 input not existed")
-		}
-		//sam -> bam
-		if b := utils.IsExist(types.HISAT2_OUT); b {
-			if b := utils.IsExist(types.SORTED_OUT); !b || (b && utils.Files(types.SORTED_OUT) == 0) {
-				if err := g.sort(types.HISAT2_OUT); err != nil {
-					g.logger.Error("create hisat2 sorted data fail", zap.Error(err))
-					return err
-				} else {
-					g.logger.Info("create hisat2 sorted data success")
-				}
-			}
-		} else {
-			g.logger.Error("hisat2 dir input not existed")
-		}
+		//if b := utils.IsExist(types.FASTP_OUT); b {
+		//	if b := utils.IsExist(types.HISAT2_OUT); !b || (b && utils.Files(types.HISAT2_OUT) == 0) {
+		//		if err := g.bwa(types.FASTP_OUT); err != nil {
+		//			g.logger.Error("clean -> hisat data fail", zap.Error(err))
+		//			return err
+		//		}
+		//	} else {
+		//		g.logger.Info("hisat2 data has build")
+		//		files, err := ioutil.ReadDir(types.FASTP_OUT)
+		//		if err != nil {
+		//			g.logger.Error("read hisat2 data fail", zap.Error(err))
+		//		} else {
+		//			names := make([]string, 0)
+		//			for _, v := range files {
+		//				names = append(names, v.Name())
+		//			}
+		//			g.logger.Warn("hisat2 data ", zap.Strings("files", names))
+		//		}
+		//	}
+		//} else {
+		//	g.logger.Error("hisat2 input not existed")
+		//}
+		////sam -> bam
+		//if b := utils.IsExist(types.HISAT2_OUT); b {
+		//	if b := utils.IsExist(types.SORTED_OUT); !b || (b && utils.Files(types.SORTED_OUT) == 0) {
+		//		if err := g.sort(types.HISAT2_OUT); err != nil {
+		//			g.logger.Error("create hisat2 sorted data fail", zap.Error(err))
+		//			return err
+		//		} else {
+		//			g.logger.Info("create hisat2 sorted data success")
+		//		}
+		//	}
+		//} else {
+		//	g.logger.Error("hisat2 dir input not existed")
+		//}
 		//bam -> count
 		if b := utils.IsExist(types.GATK_OUT); b {
 			if err := g.buildVCF(); err != nil {
