@@ -123,14 +123,14 @@ func (g *genePlugin) Build(ctx context.Context) error {
 	)
 	wd, _ = os.Getwd()
 	// 线安装依赖包
-	cmd := exec.Command("Rscript", "install.R")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-	if err := cmd.Run(); err != nil {
-		g.logger.Error("diff error", zap.Error(err))
-		return err
-	}
+	//cmd := exec.Command("Rscript", "install.R")
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	//g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+	//if err := cmd.Run(); err != nil {
+	//	g.logger.Error("diff error", zap.Error(err))
+	//	return err
+	//}
 	//var wg sync.WaitGroup
 	for _, group := range g.config.Group {
 		v := group
