@@ -301,6 +301,17 @@ func (g *gatkResultPlugin) merge() error {
 		if strings.HasSuffix(v.Name(), ".g.vcf") {
 			//vcfs = append(vcfs,fmt.Sprintf("%s/%s",types.GATK_OUT,v.Name()))
 			vcfs = vcfs + fmt.Sprintf(" -V %s/%s ", types.GATK_G_OUT, v.Name())
+			if os.Getenv("type") == "large" {
+				// 大样本需要csi索引
+				cmd := exec.Command("samtools", "index", "-c", fmt.Sprintf("%s/%s", types.GATK_G_OUT, v.Name()))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
+				if err = cmd.Run(); err != nil {
+					g.logger.Error("run gatk CombineGVCFs bam", zap.Error(err), zap.String("cmd", cmd.String()))
+					return err
+				}
+			}
 		}
 	}
 	if vcfs != "" {

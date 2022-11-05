@@ -61,7 +61,7 @@ summary(res)
 resOrdered <- res[order(res$padj), ]
 resdata <- merge(as.data.frame(resOrdered), as.data.frame(counts(dds, normalized=TRUE)), by="row.names", sort=FALSE)
 names(resdata)[1] <- "Gene"
-resdata_filter <- subset(resdata,resdata$padj<0.05 & abs(resdata$log2FoldChange) >1)
+resdata_filter <- subset(resdata,resdata$padj<0.05 & abs(resdata$log2FoldChange) >%d)
 dim(resdata_filter)
 head(resdata_filter)
 filterName <- paste0(output,"/diffexpr-",name,"-0.05.txt")

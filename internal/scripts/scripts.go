@@ -419,10 +419,10 @@ ego_MF <- enrichGO(OrgDb=%s,
              pvalueCutoff = %f,
              ont = "MF")
 
-pdf(paste(args[2],"go_enrich_mf_top10.pdf",sep = "_"),width=800,height=800)
+pdf(paste(args[2],"go_enrich_mf_top10.pdf",sep = "_"))
 plotGOgraph(ego_MF)
 dev.off()
-png(paste(args[2],"go_enrich_mf_top10.png",sep = "_"),width=800,height=800)
+png(paste(args[2],"go_enrich_mf_top10.png",sep = "_"))
 plotGOgraph(ego_MF)
 dev.off()
 
@@ -442,7 +442,7 @@ ego_CC <- enrichGO(OrgDb=%s,
                   # readable=TRUE)
 
 
-pdf(paste(args[2],"go_enrich_cc_top10.pdf",sep = "_"),width=800,height=800)
+pdf(paste(args[2],"go_enrich_cc_top10.pdf",sep = "_"))
 plotGOgraph(ego_CC)
 dev.off()
 png(paste(args[2],"go_enrich_cc_top10.png",sep = "_"),width=800,height=800)
@@ -466,7 +466,7 @@ ego_BP <- enrichGO(OrgDb=%s,
                    ont = "BP")
                    #readable=TRUE)
 
-pdf(paste(args[2],"go_enrich_bp_top10.pdf",sep = "_"),width=800,height=800)
+pdf(paste(args[2],"go_enrich_bp_top10.pdf",sep = "_"))
 plotGOgraph(ego_BP)
 dev.off()
 png(paste(args[2],"go_enrich_bp_top10.png",sep = "_"),width=800,height=800)
@@ -523,7 +523,7 @@ p <- ggplot(data=go_enrich_df, aes(x=number, y=GeneNumber, fill=type)) +
   xlab("GO term") +
   theme(axis.text=element_text(face = "bold", color="gray50")) +
   labs(title = "The Most Enriched GO Terms")
-pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"),width=800,height=800)
+pdf(paste(args[2],"go_enrich_q_0.05.pdf",sep = "_"))
 p
 dev.off()
 png(paste(args[2],"go_enrich_q_0.05.png",sep = "_"),width=800,height=800)

@@ -20,6 +20,7 @@ const (
 	fift   = "15G"
 	sixten = "16G"
 	twenty = "20G"
+	thirty = "30G"
 )
 
 type config struct {
@@ -83,6 +84,8 @@ func (r *randomPlugin) buildItem() []string {
 		items = utils.RandFloats(108000000, 125000000, 1)
 	case twenty:
 		items = utils.RandFloats(135000000, 160000000, 1)
+	case thirty:
+		items = utils.RandFloats(200000000, 240000000, 1)
 	default:
 		items = utils.RandFloats(2160000000, 2500000000, 1)
 	}

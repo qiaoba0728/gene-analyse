@@ -619,14 +619,27 @@ func (g *gatkPlugin) sort(dir string) error {
 					if err = cmd.Run(); err != nil {
 						g.logger.Error("samtools sorted run fail", zap.Error(err))
 					}
-					cmd = exec.Command("samtools", "index", "-@",
-						"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-					if err = cmd.Run(); err != nil {
-						g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
-						return
+					// 这里判断 如果是大样本 需要构建csi索引
+					if os.Getenv("type") == "large" {
+						cmd = exec.Command("samtools", "index", "-@",
+							"4", "-c", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+					} else {
+						cmd = exec.Command("samtools", "index", "-@",
+							"4", fmt.Sprintf("%s/%s.sorted.bam", types.SORTED_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("samtools index run fail", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
 					}
 					f, err := os.Create(fmt.Sprintf("%s/%s.report", types.REPORT_OUT, temp))
 					if err != nil {
@@ -699,40 +712,78 @@ func (g *gatkPlugin) buildVCF() error {
 					}()
 					//标记重复序列
 					start := time.Now()
-					cmd := exec.Command("gatk", "MarkDuplicates",
-						"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
-						"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.GATK_OUT, temp))
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-					if err = cmd.Run(); err != nil {
-						g.logger.Error("run gatk MarkDuplicates", zap.Error(err), zap.String("cmd", cmd.String()))
-						return
+					if os.Getenv("type") == "large" {
+						cmd := exec.Command("gatk", "MarkDuplicates",
+							"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
+							"--REMOVE_DUPLICATES", "TRUE",
+							"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.GATK_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run gatk MarkDuplicates", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
+						cmd = exec.Command("samtools", "index", "-c",
+							fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run samtools bam", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
+						start = time.Now()
+						cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
+							//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+							"--emit-ref-confidence", "GVCF", "-OVI", "False", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
+							"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run gatk HaplotypeCaller bam", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("large run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
+					} else {
+						cmd := exec.Command("gatk", "MarkDuplicates",
+							"-I", input, "-O", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
+							"-M", fmt.Sprintf("%s/%s.markdup_metrics.txt", types.GATK_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run gatk MarkDuplicates", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
+						cmd = exec.Command("samtools", "index",
+							fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run samtools bam", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
+						start = time.Now()
+						cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
+							//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
+							"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
+							"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp))
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
+						if err = cmd.Run(); err != nil {
+							g.logger.Error("run gatk HaplotypeCaller bam", zap.Error(err), zap.String("cmd", cmd.String()))
+							return
+						}
+						g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
 					}
-					g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
-					cmd = exec.Command("samtools", "index",
-						fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp))
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					g.logger.Info("run cmd ", zap.String("cmd", cmd.String()))
-					if err = cmd.Run(); err != nil {
-						g.logger.Error("run samtools bam", zap.Error(err), zap.String("cmd", cmd.String()))
-						return
-					}
-					g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
-					start = time.Now()
-					cmd = exec.Command("gatk", "HaplotypeCaller", "-R", "gene.fa",
-						//"--java-options", `"-Xmx15G -Djava.io.tmpdir=./"`,
-						"--emit-ref-confidence", "GVCF", "-I", fmt.Sprintf("%s/%s.markdup.bam", types.GATK_OUT, temp),
-						"-O", fmt.Sprintf("%s/%s.g.vcf", types.GATK_G_OUT, temp))
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					g.logger.Info("cmd run ", zap.String("cmd", cmd.String()))
-					if err = cmd.Run(); err != nil {
-						g.logger.Error("run gatk HaplotypeCaller bam", zap.Error(err), zap.String("cmd", cmd.String()))
-						return
-					}
-					g.logger.Info("run cmd finished", zap.String("cmd", cmd.String()), zap.Duration("lost", time.Since(start)))
 				}); err != nil {
 					g.logger.Error("pool run fail", zap.Error(err))
 				}
